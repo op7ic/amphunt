@@ -25,7 +25,7 @@ sha256hashfile = sys.argv[1]
 try:
     fp = open(sha256hashfile,'r')
     for sha256hash in fp.readlines():
-		print("[+] Hunting for hash: {}".format(sha256hash))
+        print("[+] Hunting for hash: {}".format(sha256hash))
 		# Containers for output
         computer_guids = {}
         parent_to = {}
@@ -61,7 +61,7 @@ try:
         for guid in computer_guids:
 
 			# Print the hostname and GUID that is about to be queried
-            print('[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
+            print('Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
             trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
             trajectory_response = session.get(trajectory_url, params=payload, verify=False)
 
@@ -82,25 +82,28 @@ try:
                     if file_sha256 == sha256hash.strip():
                         direct_commands['process_names'].add(file_name)
                         direct_commands['commands'].add(format_arguments(arguments))
-						# print('Process name: {}'.format(file_name))
-						# print('  ',format_arguments(arguments))
+                        print('Process name: {}'.format(file_name))
+                        print('  ',format_arguments(arguments))
                     if parent_sha256 == sha256hash.strip():
                         child_file_name = event['file']['file_name']
                         parent_to.setdefault(child_file_name, [])
                         parent_to[child_file_name].append(arguments)
-			print('\n[+] Process names observed for the SHA256:')
-			for name in direct_commands['process_names']:
-				print('  ', name)
-			print('\n[+] Command line arguments observed:')
-			for command  in direct_commands['commands']:
-				print('  ', command)
-        
-        print('\n[+] This SHA256 was also the parent of {} processes'.format(len(parent_to)))
-        for process in parent_to:
-            print(process)
-            for arguments in parent_to[process]:
-                print('  ', format_arguments(arguments))
-
+                if 'command_line' in event and 'arguments' in event['command_line']:
+                    print('\nProcess names observed for the SHA256 at hostname:{} GUID:{}:'.format(computer_guids[guid]['hostname'], guid))
+                    for name in direct_commands['process_names']:
+                        print('{} - {}: {}'.format(computer_guids[guid]['hostname'], guid, name))
+                    print('\nCommand line arguments observed at hostname:{} GUID:{}:'.format(computer_guids[guid]['hostname'], guid))
+                    for command in direct_commands['commands']:
+                        print('{} - {}: {}'.format(computer_guids[guid]['hostname'], guid, command))
+                    print('\nThis SHA256 was also the parent of {} processes'.format(len(parent_to)))
+                    for process in parent_to:
+                        print(process)
+                        for arguments in parent_to[process]:
+                            print('  ', format_arguments(arguments))
+                else:
+                    print("[-] CMD could not be retrieved from hostname:{}".format(computer_guids[guid]['hostname']))
+except Exception as e:
+    print("[!] Exception occured: " + str(e))
 finally:
     fp.close()
 
