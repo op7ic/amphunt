@@ -36,6 +36,9 @@ How to invoke:
 python3 hash2connection.py hashset/cmd.txt
 ```
 
+## Limitations
+
+AMP timeline allows to search only last 500 events so historical data might be limited
 
 ## TODO
 
