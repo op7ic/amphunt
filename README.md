@@ -14,6 +14,11 @@ api_key = 'XXXXXXX' # INSERT YOU API KEY
 domainIP = 'hostname or domain name of AMP instance' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
 ```
 
+How to invoke:
+```
+python3 hash2processarg.py hashset/cmd.txt
+```
+
 ## hash2connection.py
 
 This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes and where these processes communicates to.
@@ -24,6 +29,11 @@ These 3 parameters need to be modified in the source file:
 client_id = 'XXXXXXX' # INSERT YOU API KEY
 api_key = 'XXXXXXX' # INSERT YOU API KEY
 domainIP = 'hostname or domain name of AMP instance' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
+```
+
+How to invoke:
+```
+python3 hash2connection.py hashset/cmd.txt
 ```
 
 
