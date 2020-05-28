@@ -111,26 +111,25 @@ try:
                     print("\t\t [+] Device flow correlation network event at hostname:{} ".format(computer_guids[guid]['hostname']))
                     print('\t\t DFC: {}:{} - {}:{}'.format(local_ip,local_port,remote_ip,remote_port))
                     
-                if event_type == 'NFM' and 'dirty_url' in str(event):
-                    network_info = event['network_info']
-                    dirty_url= event['dirty_url']
-                    protocol = network_info['nfm']['protocol']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    direction = network_info['nfm']['direction']
-                    if remote_ip not in remote_ips:
-                        remote_ips[remote_ip] = {'ports':[]}
-                    if remote_port not in remote_ips[remote_ip]['ports']:
-                        remote_ips[remote_ip]['ports'].append(remote_port)
-                    if direction == 'Outgoing connection from':
-                        print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t  {} {}:{} -> {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
-                        print('\t\t\t URL: {}'.format(dirty_url))
-                    if direction == 'Incoming connection from':
-                        print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t  {} {}:{} <- {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
-
+            if event_type == 'NFM' and 'dirty_url' in str(event):
+                network_info = event['network_info']
+                dirty_url= event['network_info']['dirty_url']
+                protocol = network_info['nfm']['protocol']
+                local_ip = network_info['local_ip']
+                local_port = network_info['local_port']
+                remote_ip = network_info['remote_ip']
+                remote_port = network_info['remote_port']
+                direction = network_info['nfm']['direction']
+                if remote_ip not in remote_ips:
+                    remote_ips[remote_ip] = {'ports':[]}
+                if remote_port not in remote_ips[remote_ip]['ports']:
+                    remote_ips[remote_ip]['ports'].append(remote_port)
+                if direction == 'Outgoing connection from':
+                    print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                    print('\t\t\t Host: {} {} {}:{} -> {}:{}'.format(hostname, protocol,local_ip,local_port,remote_ip,remote_port))
+                    print('\t\t\t Host: {} URL: {}'.format(hostname, dirty_url))
+                if direction == 'Incoming connection from':
+                    print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                    print('\t\t\t  {} {}:{} <- {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
 finally:
     fp.close()
