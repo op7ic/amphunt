@@ -19,6 +19,22 @@ How to invoke:
 python3 hash2processarg.py hashset/cmd.txt
 ```
 
+Sample output:
+```
+[+] Hunting for hash: 03D43EE1F2F4F152840F7B5D8DD3386A1C659DE7F4F7C951CBB40324C97E4C18
+
+	[+] Computers found: 1
+
+		[+] Querying: testbox.amp.local
+		 [+] Child SHA256: 03d43ee1f2f4f152840f7b5d8dd3386a1c659de7f4f7c951cbb40324c97e4c18
+		 [+] testbox.amp.local Process name: powershell.exe args: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.EXE restart-computer -force
+
+[+] Hunting for hash: 0BBF1952EE724D29F04D9EA52CAE9C8C781791D57ED127AE7B618704C3395A79
+
+	[+] Computers found: 0
+
+```
+
 ## hash2connection.py
 
 This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes and where these processes communicates to.
