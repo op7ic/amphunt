@@ -78,12 +78,11 @@ try:
                 if remote_port not in remote_ips[remote_ip]['ports']:
                     remote_ips[remote_ip]['ports'].append(remote_port)
                 if direction == 'Outgoing connection from':
-                    print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t\t Host: {} {} {}:{} -> {}:{}'.format(hostname, protocol,local_ip,local_port,remote_ip,remote_port))
+                    print("\t\t [+] Outbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
                     print('\t\t\t Host: {} URL: {}'.format(hostname, dirty_url))
                 if direction == 'Incoming connection from':
-                    print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t\t  {} {}:{} <- {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
+                    print("\t\t [+] Inbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
+                    print('\t\t\t Host: {} URL: {}'.format(hostname, dirty_url))
 
 
 finally:
