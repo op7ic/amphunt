@@ -1,6 +1,6 @@
 # amphunt
 
-This repository contain basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based off already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards threading and file input. In addition, SHA256 hashes for specific process names were taken from (WINFINGER)[https://github.com/op7ic/WINFINGER] repository. 
+This repository contain basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based off already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards threading and file input. In addition, SHA256 hashes for specific process names were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository. 
 
 ## hash2processarg.py
 
