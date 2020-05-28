@@ -52,6 +52,32 @@ How to invoke:
 python3 hash2connection.py hashset/cmd.txt
 ```
 
+## allconnections.py
+
+This file dumps all connections recorded in AMP against specific host.
+
+These 3 parameters need to be modified in the source file:
+
+```
+client_id = 'XXXXXXX' # INSERT YOU API KEY
+api_key = 'XXXXXXX' # INSERT YOU API KEY
+domainIP = 'hostname or domain name of AMP instance' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
+```
+
+How to invoke:
+```
+python3 allconnections.py
+```
+
+Sample output:
+```
+[+] Total computers found: 1
+
+        [+] Querying: testbox.amp.local
+                 [+] Outbound network event at hostname: testbox.amp.local
+                         Host: testbox.amp.local TCP 99.99.99.99:56846 -> 18.225.36.18:80
+                         Host: testbox.amp.local URL: http://mirrorlist.centos.org/?release=7&arch=x86_64&repo=extras&infra=stock
+```
 
 ## dumpallURL.py
 
