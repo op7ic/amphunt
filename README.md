@@ -25,3 +25,8 @@ client_id = 'XXXXXXX' # INSERT YOU API KEY
 api_key = 'XXXXXXX' # INSERT YOU API KEY
 domainIP = 'hostname or domain name of AMP instance' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
 ```
+
+
+## TODO
+
+- [ ] Output to CSV

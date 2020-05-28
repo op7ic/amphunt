@@ -97,7 +97,7 @@ try:
                         print('\t\t\t  {} {}:{} -> {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
                     if direction == 'Incoming connection from':
                         print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                        print('  {} {}:{} <- {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
+                        print('\t\t\t  {} {}:{} <- {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
                 if event_type == 'DFC Threat Detected':
                     network_info = event['network_info']
                     local_ip = network_info['local_ip']
