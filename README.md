@@ -70,6 +70,16 @@ How to invoke:
 python3 dumpallURL.py
 ```
 
+Sample output:
+```
+[+] Total computers found: 1
+
+        [+] Querying: testbox.amp.local
+                 [+] Outbound network event at hostname: testbox.amp.local
+                         Host: testbox.amp.local TCP 99.99.99.99:56846 -> 18.225.36.18:80
+                         Host: testbox.amp.local URL: http://mirrorlist.centos.org/?release=7&arch=x86_64&repo=extras&infra=stock
+```
+
 ## Limitations
 
 AMP timeline allows to search only last 500 events so historical data might be limited
