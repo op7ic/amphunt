@@ -56,6 +56,11 @@ python3 hash2connection.py hashset/cmd.txt
 
 AMP timeline allows to search only last 500 events so historical data might be limited
 
+
+## AMP4E API Endpoints 
+- ```api.eu.amp.cisco.com``` - AMP EU 
+- ```api.amp.cisco.com``` - AMP
+- ```api.apjc.amp.cisco.com``` - AMP APJC
 ## TODO
 
 - [ ] Output to CSV
