@@ -79,6 +79,7 @@ try:
                 events = trajectory_response_json['data']['events']
                 # Parse trajectory events to find the network events
                 for event in events:
+                    time=event['date']
                     event_type = event['event_type']
                     if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
                         arguments = event['command_line']['arguments']
@@ -88,17 +89,12 @@ try:
                         direct_commands['process_names'].add(file_name)
                         direct_commands['commands'].add(format_arguments(arguments))
                         print('\t\t [+] Child SHA256: {}'.format(file_sha256))
-                        print('\t\t [+] {} Process name: {} args: {}'.format(hostname, file_name,format_arguments(arguments)))
+                        print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,hostname, file_name,format_arguments(arguments)))
                         
-                    if 'NFM' in str(event_type):
-                        print("\t\t [+] Network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                        print("\t\t\t [+] Remote IP: {}".format(event['network_info']['remote_ip']))
-                        print("\t\t\t [+] Remote Port: {}".format(event['network_info']['remote_port']))
-
                     if 'file_name' in str(event) and 'command_line' not in str(event):
-                        print("\t\t [-] CMD could not be retrieved from hostname:{}".format(computer_guids[guid]['hostname']))
-                        print("\t\t\t [+] File Path: {}".format(event['file']['file_path']))
-                        print("\t\t\t [+] Parent SHA256: {}".format(event['file']['parent']['identity']['sha256']))
+                        print("\t\t [-] CMD could not be retrieved from hostname:{}".format(hostname))
+                        print("\t\t\t [+] {} : {} File Path: {}".format(time,hostname,event['file']['file_path']))
+                        print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,hostname,event['file']['parent']['identity']['sha256']))
             except:
                 pass
 finally:
