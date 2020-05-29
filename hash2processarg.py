@@ -66,39 +66,41 @@ try:
             computer_guids.setdefault(connector_guid, {'hostname':hostname})
         print('\t[+] Computers found: {}'.format(len(computer_guids)))
 
-		# Query trajectory for each GUID
+        # Query trajectory for each GUID
         for guid in computer_guids:
-			# Print the hostname and GUID that is about to be queried
+            # Print the hostname and GUID that is about to be queried
             print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
             trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
             trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-			# Decode JSON response
+            # Decode JSON response
             trajectory_response_json = trajectory_response.json()
-			# Name events section of JSON
-            events = trajectory_response_json['data']['events']
-			# Parse trajectory events to find the network events
-            for event in events:
-                event_type = event['event_type']
-                if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
-                    arguments = event['command_line']['arguments']
-                    file_sha256 = event['file']['identity']['sha256']
-                    parent_sha256 = event['file']['parent']['identity']['sha256']
-                    file_name = event['file']['file_name']
-                    direct_commands['process_names'].add(file_name)
-                    direct_commands['commands'].add(format_arguments(arguments))
-                    print('\t\t [+] Child SHA256: {}'.format(file_sha256))
-                    print('\t\t [+] {} Process name: {} args: {}'.format(hostname, file_name,format_arguments(arguments)))
-                    
-                if 'NFM' in str(event_type):
-                    print("\t\t [+] Network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                    print("\t\t\t [+] Remote IP: {}".format(event['network_info']['remote_ip']))
-                    print("\t\t\t [+] Remote Port: {}".format(event['network_info']['remote_port']))
+            # Name events section of JSON
+            try:
+                events = trajectory_response_json['data']['events']
+                # Parse trajectory events to find the network events
+                for event in events:
+                    event_type = event['event_type']
+                    if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
+                        arguments = event['command_line']['arguments']
+                        file_sha256 = event['file']['identity']['sha256']
+                        parent_sha256 = event['file']['parent']['identity']['sha256']
+                        file_name = event['file']['file_name']
+                        direct_commands['process_names'].add(file_name)
+                        direct_commands['commands'].add(format_arguments(arguments))
+                        print('\t\t [+] Child SHA256: {}'.format(file_sha256))
+                        print('\t\t [+] {} Process name: {} args: {}'.format(hostname, file_name,format_arguments(arguments)))
+                        
+                    if 'NFM' in str(event_type):
+                        print("\t\t [+] Network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                        print("\t\t\t [+] Remote IP: {}".format(event['network_info']['remote_ip']))
+                        print("\t\t\t [+] Remote Port: {}".format(event['network_info']['remote_port']))
 
-                if 'file_name' in str(event) and 'command_line' not in str(event):
-                	print("\t\t [-] CMD could not be retrieved from hostname:{}".format(computer_guids[guid]['hostname']))
-                	print("\t\t\t [+] File Path: {}".format(event['file']['file_path']))
-                	print("\t\t\t [+] Parent SHA256: {}".format(event['file']['parent']['identity']['sha256']))
-
+                    if 'file_name' in str(event) and 'command_line' not in str(event):
+                        print("\t\t [-] CMD could not be retrieved from hostname:{}".format(computer_guids[guid]['hostname']))
+                        print("\t\t\t [+] File Path: {}".format(event['file']['file_path']))
+                        print("\t\t\t [+] Parent SHA256: {}".format(event['file']['parent']['identity']['sha256']))
+            except:
+                pass
 finally:
     fp.close()
 
