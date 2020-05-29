@@ -71,64 +71,67 @@ try:
         for guid in computer_guids:
 			# Print the hostname and GUID that is about to be queried
             print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
-            trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-            trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-			# Decode JSON response
-            trajectory_response_json = trajectory_response.json()
-			# Name events section of JSON
-            events = trajectory_response_json['data']['events']
-			# Parse trajectory events to find the network events
-            for event in events:
-                event_type = event['event_type']
-                if event_type == 'NFM':
-                    network_info = event['network_info']
-                    protocol = network_info['nfm']['protocol']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    direction = network_info['nfm']['direction']
-                    if remote_ip not in remote_ips:
-                        remote_ips[remote_ip] = {'ports':[]}
-                    if remote_port not in remote_ips[remote_ip]['ports']:
-                        remote_ips[remote_ip]['ports'].append(remote_port)
-                    if direction == 'Outgoing connection from':
-                        print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t  {} {}:{} -> {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Incoming connection from':
-                        print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t  {} {}:{} <- {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
-                if event_type == 'DFC Threat Detected':
-                    network_info = event['network_info']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    if remote_ip not in remote_ips:
-                        remote_ips[remote_ip] = {'ports':[]}
-                    if remote_port not in remote_ips[remote_ip]['ports']:
-                        remote_ips[remote_ip]['ports'].append(remote_port)
-                    print("\t\t [+] Device flow correlation network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t DFC: {}:{} - {}:{}'.format(local_ip,local_port,remote_ip,remote_port))
-                if event_type == 'NFM' and 'dirty_url' in str(event):
-                    network_info = event['network_info']
-                    dirty_url= event['network_info']['dirty_url']
-                    protocol = network_info['nfm']['protocol']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    direction = network_info['nfm']['direction']
-                    if remote_ip not in remote_ips:
-                        remote_ips[remote_ip] = {'ports':[]}
-                    if remote_port not in remote_ips[remote_ip]['ports']:
-                        remote_ips[remote_ip]['ports'].append(remote_port)
-                    if direction == 'Outgoing connection from':
-                        print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t Host: {} {} {}:{} -> {}:{}'.format(hostname, protocol,local_ip,local_port,remote_ip,remote_port))
-                        print('\t\t\t Host: {} URL: {}'.format(hostname, dirty_url))
-                    if direction == 'Incoming connection from':
-                        print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t  {} {}:{} <- {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
+            try:
+                trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+                trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+    			# Decode JSON response
+                trajectory_response_json = trajectory_response.json()
+    			# Name events section of JSON
+                events = trajectory_response_json['data']['events']
+    			# Parse trajectory events to find the network events
+                for event in events:
+                    event_type = event['event_type']
+                    if event_type == 'NFM':
+                        network_info = event['network_info']
+                        protocol = network_info['nfm']['protocol']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        direction = network_info['nfm']['direction']
+                        if remote_ip not in remote_ips:
+                            remote_ips[remote_ip] = {'ports':[]}
+                        if remote_port not in remote_ips[remote_ip]['ports']:
+                            remote_ips[remote_ip]['ports'].append(remote_port)
+                        if direction == 'Outgoing connection from':
+                            print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                            print('\t\t\t  {} {}:{} -> {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Incoming connection from':
+                            print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                            print('\t\t\t  {} {}:{} <- {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
+                    if event_type == 'DFC Threat Detected':
+                        network_info = event['network_info']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        if remote_ip not in remote_ips:
+                            remote_ips[remote_ip] = {'ports':[]}
+                        if remote_port not in remote_ips[remote_ip]['ports']:
+                            remote_ips[remote_ip]['ports'].append(remote_port)
+                        print("\t\t [+] Device flow correlation network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                        print('\t\t DFC: {}:{} - {}:{}'.format(local_ip,local_port,remote_ip,remote_port))
+                    if event_type == 'NFM' and 'dirty_url' in str(event):
+                        network_info = event['network_info']
+                        dirty_url= event['network_info']['dirty_url']
+                        protocol = network_info['nfm']['protocol']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        direction = network_info['nfm']['direction']
+                        if remote_ip not in remote_ips:
+                            remote_ips[remote_ip] = {'ports':[]}
+                        if remote_port not in remote_ips[remote_ip]['ports']:
+                            remote_ips[remote_ip]['ports'].append(remote_port)
+                        if direction == 'Outgoing connection from':
+                            print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                            print('\t\t\t Host: {} {} {}:{} -> {}:{}'.format(hostname, protocol,local_ip,local_port,remote_ip,remote_port))
+                            print('\t\t\t Host: {} URL: {}'.format(hostname, dirty_url))
+                        if direction == 'Incoming connection from':
+                            print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                            print('\t\t\t  {} {}:{} <- {}:{}'.format(protocol,local_ip,local_port,remote_ip,remote_port))
+            except:
+                pass
 finally:
     fp.close()
