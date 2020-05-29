@@ -53,7 +53,6 @@ try:
         connector_guid = entry['connector_guid']
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
-
     print('[+] Total computers found: {}'.format(len(computer_guids)))
     for guid in computer_guids:
         print('\n\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
@@ -64,7 +63,7 @@ try:
             events = trajectory_response_json['data']['events']
             for event in events:
                 event_type = event['event_type']
-                    
+                time = event['date']
                 if event_type == 'NFM' and 'dirty_url' in str(event):
                     network_info = event['network_info']
                     dirty_url= event['network_info']['dirty_url']
@@ -80,10 +79,10 @@ try:
                         remote_ips[remote_ip]['ports'].append(remote_port)
                     if direction == 'Outgoing connection from':
                         print("\t\t [+] Outbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t Host: {} URL: {}'.format(hostname, dirty_url))
+                        print('\t\t\t {} Host: {} URL: {}'.format(time,hostname, dirty_url))
                     if direction == 'Incoming connection from':
                         print("\t\t [+] Inbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t Host: {} URL: {}'.format(hostname, dirty_url))
+                        print('\t\t\t {} Host: {} URL: {}'.format(time,hostname, dirty_url))
         except:
             pass
 
