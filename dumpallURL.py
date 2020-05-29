@@ -79,10 +79,10 @@ try:
                         remote_ips[remote_ip]['ports'].append(remote_port)
                     if direction == 'Outgoing connection from':
                         print("\t\t [+] Outbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} Host: {} URL: {}'.format(time,hostname, dirty_url))
+                        print('\t\t\t {} Host: {} URL: {}'.format(time,computer_guids[guid]['hostname'], dirty_url))
                     if direction == 'Incoming connection from':
                         print("\t\t [+] Inbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} Host: {} URL: {}'.format(time,hostname, dirty_url))
+                        print('\t\t\t {} Host: {} URL: {}'.format(time,computer_guids[guid]['hostname'], dirty_url))
         except:
             pass
 

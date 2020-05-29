@@ -89,12 +89,12 @@ try:
                         direct_commands['process_names'].add(file_name)
                         direct_commands['commands'].add(format_arguments(arguments))
                         print('\t\t [+] Child SHA256: {}'.format(file_sha256))
-                        print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,hostname, file_name,format_arguments(arguments)))
+                        print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
                         
                     if 'file_name' in str(event) and 'command_line' not in str(event):
-                        print("\t\t [-] CMD could not be retrieved from hostname:{}".format(hostname))
-                        print("\t\t\t [+] {} : {} File Path: {}".format(time,hostname,event['file']['file_path']))
-                        print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,hostname,event['file']['parent']['identity']['sha256']))
+                        print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
+                        print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
+                        print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
             except:
                 pass
 finally:
