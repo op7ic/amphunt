@@ -4,7 +4,7 @@ This repository contains basic threat hunting scripts for [AMP4E](https://www.ci
 
 ## hash2processarg.py
 
-This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes along with executed command line arguments orignating from these processes.
+This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes along with executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments.
 
 These 3 parameters need to be modified in the source file:
 
