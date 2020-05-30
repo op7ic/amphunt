@@ -115,13 +115,15 @@ AMP timeline allows to search only last 500 events so historical data might be l
 - ```api.amp.cisco.com``` - AMP
 - ```api.apjc.amp.cisco.com``` - AMP APJC
 
-## Useful things to grep for
+## Examples of useful things to grep for
 ```
 rundll32 + url.dll
-
+net + admin or domain
+powershell + iex
+powershell + "==" (for base64)
+cmd + whoami
+net + use + http or \\ (for webdav)
 ```
-
-
 
 ## TODO
 
