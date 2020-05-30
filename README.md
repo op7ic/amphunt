@@ -114,6 +114,15 @@ AMP timeline allows to search only last 500 events so historical data might be l
 - ```api.eu.amp.cisco.com``` - AMP EU 
 - ```api.amp.cisco.com``` - AMP
 - ```api.apjc.amp.cisco.com``` - AMP APJC
+
+## Useful things to grep for
+```
+rundll32 + url.dll
+
+```
+
+
+
 ## TODO
 
 - [ ] Output to CSV
