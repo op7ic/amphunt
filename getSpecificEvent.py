@@ -167,7 +167,7 @@ with f:
         writer.writerow(d)
 f.close()
 
-print("[+] Dumped {} events to {}".format(len(output_list),fileDump))
+print("[+] Dumped {} lines to {}".format(len(output_list),fileDump))
 # Collect garbage
 gc.collect()
 

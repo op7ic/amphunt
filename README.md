@@ -122,7 +122,7 @@ Example output:
 ```
 [+] Total results: 3452
 [+] Event Type: Cloud IOC
-[+] Dumped 3331 events to cloud.ioc.csv
+[+] Dumped 3331 lines to cloud.ioc.csv
 ```
 
 List of available event codes can be retrieved using [API function event_types](https://api-docs.amp.cisco.com/api_actions/details?api_action=GET+%2Fv1%2Fevent_types&api_host=api.amp.cisco.com&api_resource=Event+Type&api_version=v1):
