@@ -5,6 +5,7 @@ import requests
 import time
 import csv
 import gc
+import configparser
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -46,18 +47,20 @@ def walk_json(event):
     # Extract headers from JSON object
     return sorted(get_leaves(event))
 
-
-client_id = 'XXXXXXXXXXXXXXX'# INSERT YOU API KEY
-api_key = 'XXXXXXXXXXXXXXX'# INSERT YOU API KEY
-domainIP = 'XXXXXXXXXXXXXXX' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
-
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
-    sys.exit('Usage: <event id> <csv file to write>\n %s' % sys.argv[0])
+    sys.exit('Usage: <config file> <event id> <csv file to write>\n %s' % sys.argv[0])
+
+config = configparser.ConfigParser()
+config.read(sys.argv[1])
+client_id = config['settings']['client_id']
+api_key = config['settings']['api_key']
+domainIP = config['settings']['domainIP']
 
 # Store the command line parameter
-searchEventId=sys.argv[1]
-fileDump=sys.argv[2]
+searchEventId=sys.argv[2]
+fileDump=sys.argv[3]
+
 # Store GUIDs types
 computer_guids = {}
 objects_to_write = {}

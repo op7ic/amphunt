@@ -4,19 +4,12 @@ This repository contains basic threat hunting scripts for [AMP4E](https://www.ci
 
 ## hash2processarg.py
 
-This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes along with executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments.
+This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes along with executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments. Please edit [config.txt](config.txt] and add appropriate API keys.
 
-These 3 parameters need to be modified in the source file:
-
-```
-client_id = 'XXXXXXX' # INSERT YOU API KEY
-api_key = 'XXXXXXX' # INSERT YOU API KEY
-domainIP = 'hostname or domain name of AMP instance' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
-```
 
 How to invoke:
 ```
-python3 hash2processarg.py hashset/cmd.txt
+python3 hash2processarg.py <config file.txt> <hashset/cmd.txt>
 ```
 
 Sample output:
@@ -37,36 +30,22 @@ Sample output:
 
 ## hash2connection.py
 
-This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes and where these processes communicates to.
+This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes and where these processes communicates to. Please edit [config.txt](config.txt] and add appropriate API keys.
 
-These 3 parameters need to be modified in the source file:
-
-```
-client_id = 'XXXXXXX' # INSERT YOU API KEY
-api_key = 'XXXXXXX' # INSERT YOU API KEY
-domainIP = 'hostname or domain name of AMP instance' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
-```
 
 How to invoke:
 ```
-python3 hash2connection.py hashset/cmd.txt
+python3 hash2connection.py <config file.txt> <hashset/cmd.txt>
 ```
 
 ## allconnections.py
 
-This file dumps all connections recorded in AMP against specific host.
+This file dumps all connections recorded in AMP against specific host. Please edit [config.txt](config.txt] and add appropriate API keys.
 
-These 3 parameters need to be modified in the source file:
-
-```
-client_id = 'XXXXXXX' # INSERT YOU API KEY
-api_key = 'XXXXXXX' # INSERT YOU API KEY
-domainIP = 'hostname or domain name of AMP instance' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
-```
 
 How to invoke:
 ```
-python3 allconnections.py
+python3 allconnections.py <config file.txt>
 ```
 
 Sample output:
@@ -81,19 +60,11 @@ Sample output:
 
 ## dumpallURL.py
 
-This file dumps all URLs which hosts connect to.
-
-These 3 parameters need to be modified in the source file:
-
-```
-client_id = 'XXXXXXX' # INSERT YOU API KEY
-api_key = 'XXXXXXX' # INSERT YOU API KEY
-domainIP = 'hostname or domain name of AMP instance' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
-```
+This file dumps all URLs which hosts connect to. Please edit [config.txt](config.txt] and add appropriate API keys.
 
 How to invoke:
 ```
-python3 dumpallURL.py
+python3 dumpallURL.py <config file.txt>
 ```
 
 Sample output:
@@ -108,14 +79,14 @@ Sample output:
 
 ## getSpecificEvent.py
 
-This file extracts specific events and exports them to CSV file with the event number as file name.
+This file extracts specific events and exports them to CSV file with the event number as file name. Please edit [config.txt](config.txt] and add appropriate API keys.
 
 How to invoke:
 
 ```
-python3 getSpecificEvent.py <event_number> <CSV file name>
+python3 getSpecificEvent.py <config file> <event_number> <CSV file name>
 i.e.
-python3 getSpecificEvent.py 1107296274 cloud.ioc.csv
+python3 getSpecificEvent.py config.txt 1107296274 cloud.ioc.csv
 ```
 
 Example output:

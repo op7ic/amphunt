@@ -1,6 +1,7 @@
 # This script is based on https://github.com/CiscoSecurity/amp-04-sha256-to-network-connections/blob/master/sha256_to_network_connections.py
 import sys
 import requests
+import configparser
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -14,13 +15,16 @@ def format_arguments(_arguments):
         return ' '.join(_arguments)
     return _arguments
 
-client_id = 'XXXXXXXXXXXXXXXXX'# INSERT YOU API KEY
-api_key = 'XXXXXXXXXXXXXXXXX'# INSERT YOU API KEY
-domainIP = 'XXXXXXXXXXXXXXXXX' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
-
 # Validate a command line parameter was provided
-if len(sys.argv) < 1:
-    sys.exit('Usage:\n %s' % sys.argv[0])
+if len(sys.argv) < 2:
+    sys.exit('Usage: <config file.txt>\n %s' % sys.argv[0])
+
+# Parse config to extract API keys
+config = configparser.ConfigParser()
+config.read(sys.argv[1])
+client_id = config['settings']['client_id']
+api_key = config['settings']['api_key']
+domainIP = config['settings']['domainIP']
 
 # Store the command line parameter
 remote_ips = {}

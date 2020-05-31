@@ -1,6 +1,7 @@
 # This script is based on https://github.com/CiscoSecurity/amp-04-check-sha256-execution
 import sys
 import requests
+import configparser
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -13,18 +14,20 @@ def format_arguments(_arguments):
     if isinstance(_arguments, list):
         return ' '.join(_arguments)
     return _arguments
-
-client_id = 'XXXXXXXXXXXXXXXXXXXXXX'# INSERT YOU API KEY
-api_key = 'XXXXXXXXXXXXXXXXXXXXXX'# INSERT YOU API KEY
-domainIP = 'XXX.XXX.XXX.XXX' # INSERT YOUR DOMAIN NAME/HOSTNAME WHERE AMP EXISTS
-
-
+    
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
-    sys.exit('Usage:\n %s hashfile.txt' % sys.argv[0])
+    sys.exit('Usage:\n %s <config file> <hashfile.txt>' % sys.argv[0])
+    
+# Parse config to extract API keys
+config = configparser.ConfigParser()
+config.read(sys.argv[1])
+client_id = config['settings']['client_id']
+api_key = config['settings']['api_key']
+domainIP = config['settings']['domainIP']
 
 # Store the command line parameter
-sha256hashfile = sys.argv[1]
+sha256hashfile = sys.argv[2]
 
 try:
     fp = open(sha256hashfile,'r')

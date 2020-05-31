@@ -1,0 +1,4 @@
+[settings]
+client_id = XXXXXXXXXXXXXXX
+api_key = XXXXXXXXXXXXXXX
+domainIP = XXXXXXXXXXXXXXX
