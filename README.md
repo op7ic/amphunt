@@ -4,7 +4,7 @@ This repository contains basic threat hunting scripts for [AMP4E](https://www.ci
 
 ## hash2processarg.py
 
-This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes along with executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments. Please edit [config.txt](config.txt] and add appropriate API keys.
+This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes along with executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 
 How to invoke:
@@ -30,7 +30,7 @@ Sample output:
 
 ## hash2connection.py
 
-This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes and where these processes communicates to. Please edit [config.txt](config.txt] and add appropriate API keys.
+This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes and where these processes communicates to. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 
 How to invoke:
@@ -40,7 +40,7 @@ python3 hash2connection.py <config file.txt> <hashset/cmd.txt>
 
 ## allconnections.py
 
-This file dumps all connections recorded in AMP against specific host. Please edit [config.txt](config.txt] and add appropriate API keys.
+This file dumps all connections recorded in AMP against specific host. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 
 How to invoke:
@@ -60,7 +60,7 @@ Sample output:
 
 ## dumpallURL.py
 
-This file dumps all URLs which hosts connect to. Please edit [config.txt](config.txt] and add appropriate API keys.
+This file dumps all URLs which hosts connect to. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 ```
@@ -79,7 +79,7 @@ Sample output:
 
 ## getSpecificEvent.py
 
-This file extracts specific events and exports them to CSV file with the event number as file name. Please edit [config.txt](config.txt] and add appropriate API keys.
+This file extracts specific events and exports them to CSV file with the event number as file name. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 
