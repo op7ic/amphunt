@@ -79,7 +79,7 @@ Sample output:
 
 ## getSpecificEvent.py
 
-This file extracts specific events from AMP API, identified by Event ID and exports them to CSV file. Please edit [config.txt](config.txt) and add appropriate API keys.
+This file extracts specific events from AMP API, identified by Event ID, and exports them to CSV file. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 
