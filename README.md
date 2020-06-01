@@ -79,7 +79,7 @@ Sample output:
 
 ## getSpecificEvent.py
 
-This file extracts specific events and exports them to CSV file with the event number as file name. Please edit [config.txt](config.txt) and add appropriate API keys.
+This file extracts specific events from AMP API, identified by Event ID and exports them to CSV file. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 
@@ -209,11 +209,13 @@ AMP timeline allows to search only last 500 events so historical data might be l
 
 
 ## AMP4E API Endpoints 
+
 - ```api.eu.amp.cisco.com``` - AMP EU 
 - ```api.amp.cisco.com``` - AMP
 - ```api.apjc.amp.cisco.com``` - AMP APJC
 
-## Examples of useful things to grep for:
+## Examples of useful things to grep and search for:
+
 ```
 rundll32 + url.dll
 net + admin or domain
@@ -225,7 +227,9 @@ net + use + http or \\ (for webdav)
 psexec + use of -s or cmd with password
 procdump + lsass
 psexec-svc
+nltest
 net + administrator
+vulnerable software (using event code 1107296279)
 ```
 
 ## TODO
