@@ -102,8 +102,13 @@ except:
     pass
 
 # Print total number of alerts in AMP console
-print("[+] Total results: {}".format(total))
-print("[+] Event Type: {} ".format(data[0]['event_type']))
+try:
+    print("[+] Total results: {}".format(total))
+    print("[+] Event Type: {} ".format(data[0]['event_type']))
+except:
+    print("[-] Event ID {} 0 events".format(searchEventId))
+    sys.exit(1)
+
 # For each record entry, add hostname and GUID of system which matches with Event ID, discard anything else
 for entry in data:
     if int(entry['event_type_id']) == int(searchEventId) and entry['event_type'] != "Install Started":
