@@ -29,7 +29,7 @@ Sample output:
 
 ## hash2processarg2csv.csv
 
-This is a reimplementation of [hash2processarg.py](hash2processarg.py) file with changed output format writing CSV which can be easily redirected to CSV file.
+This is a reimplementation of [hash2processarg.py](hash2processarg.py) file with changed output format writing CSV which can be easily redirected to output file.
 
 How to invoke:
 ```
