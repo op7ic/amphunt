@@ -1,6 +1,6 @@
 # amphunt
 
-This repository contains basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based on already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards handling file inputs. In addition, SHA256 hashes for specific processes were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository. 
+This repository contains basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based on already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards handling file inputs. In addition, SHA256 hashes for specific processes were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository. Each script takes at least config file as argument.
 
 ## hash2processarg.py
 
@@ -93,7 +93,7 @@ Example output:
 ```
 [+] Total results: 3452
 [+] Event Type: Cloud IOC
-[+] Dumped 3331 lines to cloud.ioc.csv
+[+] Dumped 3452 lines to cloud.ioc.csv
 ```
 
 List of available event codes can be retrieved using [API function event_types](https://api-docs.amp.cisco.com/api_actions/details?api_action=GET+%2Fv1%2Fevent_types&api_host=api.amp.cisco.com&api_resource=Event+Type&api_version=v1):

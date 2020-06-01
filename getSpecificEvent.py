@@ -1,11 +1,15 @@
 # This script is based on https://github.com/CiscoSecurity/amp-01-basics/blob/master/04_get_events.py
 # This script is based on https://stackoverflow.com/questions/41180960/convert-nested-json-to-csv-file-in-python
+# This script is based on https://www.geeksforgeeks.org/python-convert-list-of-tuples-to-dictionary-value-lists/
 import sys
 import requests
 import time
 import csv
 import gc
 import configparser
+from collections import defaultdict 
+from operator import itemgetter 
+from itertools import groupby 
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -47,6 +51,10 @@ def walk_json(event):
     # Extract headers from JSON object
     return sorted(get_leaves(event))
 
+def returnDictFromTuple(tup):
+    return dict((k, [v[1] for v in itr]) for k, itr in groupby(tup, itemgetter(0))) 
+
+
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
     sys.exit('Usage: <config file> <event id> <csv file to write>\n %s' % sys.argv[0])
@@ -61,11 +69,10 @@ domainIP = config['settings']['domainIP']
 searchEventId=sys.argv[2]
 fileDump=sys.argv[3]
 
-# Store GUIDs types
+# Store GUIDs + other elements
 computer_guids = {}
-objects_to_write = {}
-header = {}
-fieldnames = set()
+objects_to_write = dict()
+
 # Creat session object
 # http://docs.python-requests.org/en/master/user/advanced/
 # Using a session object gains efficiency when making multiple requests
@@ -105,7 +112,7 @@ for entry in data:
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
         date=entry['date']
         # We save GUID + Date to make unique key in the dictionary
-        objects_to_write.setdefault(str(connector_guid+"+"+date),walk_json(entry))
+        objects_to_write.setdefault(str(connector_guid+"+"+date),reduceTuple(walk_json(entry)))
     else:
         pass
 
@@ -130,48 +137,40 @@ while 'next' in response_event_json['metadata']['links']:
             date=entry['date']
             computer_guids.setdefault(connector_guid, {'hostname':hostname})
             # We save GUID + Date to make unique key in the dictionary
-            objects_to_write.setdefault(str(connector_guid+"+"+date),walk_json(entry))    
+            objects_to_write.setdefault(str(connector_guid+"+"+date),reduceTuple(walk_json(entry)))
         else:
             pass
 
 # Store headers
 header_set = set()
-# Basic dict structure so we can store data for CSV write
-basic_dict = dict()
 # Store list of dict objects to write back to CSV files
 output_list = list()
 
-# Enum list of uniq objects from events
-for key in objects_to_write:
-    # Reduce the tuple to unique objects which can be sorted later. TODO - write complete reduced object to CSV
-    small_tuple = reduceTuple(objects_to_write[key])
-    # Extract and store specific dictionary elements
-    for z in small_tuple:
-        # Strip and convert only first row (we don't care about additional fields, just want basic ones to show problems)
-        basic_dict.update({z[0]: z[1]})
-    # Write objects to list that we can use to flush down to csvz
-    output_list.append(basic_dict)        
-
-# Make sure all header fields are added
-for d in output_list:
-    # Sort out all headers so they match with whatever headers we get from API
-    for list_keys in d.keys():
+bs=dict()
+# Assign values to keys
+for key, values in objects_to_write.items():
+    # Create new dict from tuples
+    bs[key] = returnDictFromTuple(values)
+    for list_keys in bs[key].keys():
         header_set.add(list_keys)
+    output_list.append(bs)
 
-# Final flush to final output   
+# # Final flush to final output csv
 f = open(fileDump, 'w')
+
 with f:
     # Use DictWriter to write dictionary write list of objects to csv file
-    writer = csv.DictWriter(f, fieldnames=sorted(header_set))    
+    writer = csv.DictWriter(f, fieldnames=header_set,restval="-")    
     # Append Header
     writer.writeheader()
     # Enumerate list of objects returned
-    for d in output_list:
-        writer.writerow(d)
+    for k in bs.values():
+        writer.writerow(k)
+
+
 f.close()
 
-print("[+] Dumped {} lines to {}".format(len(output_list),fileDump))
+print("[+] Dumped {} lines to {}".format(len(bs),fileDump))
 # Collect garbage
 gc.collect()
-
 
