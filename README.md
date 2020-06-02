@@ -14,17 +14,10 @@ python3 hash2processarg.py <config file.txt> <hashset/cmd.txt>
 Sample output:
 ```
 [+] Hunting for hash: 03D43EE1F2F4F152840F7B5D8DD3386A1C659DE7F4F7C951CBB40324C97E4C18
-
 	[+] Computers found: 1
-
 		[+] Querying: testbox.amp.local
 		 [+] Child SHA256: 03d43ee1f2f4f152840f7b5d8dd3386a1c659de7f4f7c951cbb40324c97e4c18
 		 [+] 2020-04-01T09:46:41+00:00 : testbox.amp.local Process name: powershell.exe args: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.EXE restart-computer -force
-
-[+] Hunting for hash: 0BBF1952EE724D29F04D9EA52CAE9C8C781791D57ED127AE7B618704C3395A79
-
-	[+] Computers found: 0
-
 ```
 
 ## hash2processarg2csv.py
@@ -67,7 +60,6 @@ python3 allconnections.py <config file.txt>
 Sample output:
 ```
 [+] Total computers found: 1
-
         [+] Querying: testbox.amp.local
                  [+] Outbound network event at hostname: testbox.amp.local
                          Host: testbox.amp.local TCP 99.99.99.99:56846 -> 18.225.36.18:80

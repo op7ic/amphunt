@@ -31,10 +31,9 @@ sha256hashfile = sys.argv[2]
 
 # Store objects:
 computer_guids = {}
-objects_to_write = {}
 
 #Print header for CSV 
-print('date,guid,hostname,sha256,Parent sha256,file_name,arguments')
+print('date,guid,hostname,sha256,parent sha256,file_name,arguments')
 try:
     fp = open(sha256hashfile,'r')
     for sha256hash in fp.readlines():
@@ -89,7 +88,7 @@ try:
                 hostname = entry_paged['hostname']
                 computer_guids.setdefault(connector_guid, {'hostname':hostname})
 
-        # Finally, for each GUID we match the args with trajectory (trajectory is limited to last 500 events however)
+        # Finally, for each GUID on the list we match the args with trajectory (trajectory is limited to last 500 events however)
         for guid in computer_guids:
             trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
             trajectory_response = session.get(trajectory_url, params=payload, verify=False)
@@ -98,7 +97,6 @@ try:
             if int(headers['X-RateLimit-Remaining']) < 10:
                 time.sleep(int(headers['X-RateLimit-Reset'])+5)
             trajectory_response_json = trajectory_response.json()
-            #   Name events section of JSON
             try:
                 # only focus on actual events, ignore DFC and other type of telemetry (hence pass for exception)
                 events = trajectory_response_json['data']['events']
@@ -113,6 +111,7 @@ try:
                         file_name = event['file']['file_name']
                         direct_commands['process_names'].add(file_name)
                         direct_commands['commands'].add(format_arguments(arguments))
+                        #Print out line formatted for CSV
                         print("{},{},{},{},{},{},{}".format(timestamp,
                             guid,
                             computer_guids[guid]['hostname'],
@@ -125,13 +124,15 @@ try:
                         file_sha256 = event['file']['identity']['sha256']
                         parent_sha256 = event['file']['parent']['identity']['sha256']
                         file_name = event['file']['file_name']
+                        #Print out line formatted for CSV
                         print("{},{},{},{},{},{},{}".format(timestamp,
                             guid,
                             computer_guids[guid]['hostname'],
                             file_sha256,
                             parent_sha256,
                             file_name,
-                            "-")) # this line won't have command line so final argument is always "-"
+                            "-"))
+                        # the final line won't have command line so final argument is always "-"
             except:
                  pass
 
