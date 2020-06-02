@@ -26,7 +26,7 @@ This is a reimplementation of [hash2processarg.py](hash2processarg.py) file with
 
 How to invoke:
 ```
-python3 hash2processarg2csv.py <config file.txt> <hashset/cmd.txt>
+python3 hash2processarg2csv.py <config file.txt> <hashset/cmd.txt> > output.csv
 ```
 
 Sample output:
@@ -51,7 +51,6 @@ python3 hash2connection.py <config file.txt> <hashset/cmd.txt>
 
 This file dumps all connections recorded in AMP against specific host. Please edit [config.txt](config.txt) and add appropriate API keys.
 
-
 How to invoke:
 ```
 python3 allconnections.py <config file.txt>
@@ -66,6 +65,22 @@ Sample output:
                          Host: testbox.amp.local URL: http://mirrorlist.centos.org/?release=7&arch=x86_64&repo=extras&infra=stock
 ```
 
+## allconnections2csv.py
+
+This is a reimplementation of [allconnections.py](allconnections.py) file with changed output format writing CSV which can be easily redirected to output file.
+
+How to invoke:
+```
+python3 allconnections2csv.py <config file.txt> > output.csv
+```
+
+Sample output:
+```
+date,guid,hostname,telemetry source,source_ip,source_port,destination,destination port,direction,domain,URL
+<date>,<guid>,<hostname>,<telemetry>,<source IP>,<source port>,<destination IP>,<destination port>,<inbound/outbound>,<domain>,<URL>
+<date>,<guid>,<hostname>,<telemetry>,<source IP>,<source port>,<destination IP>,<destination port>,<inbound/outbound>,<domain>,<URL>
+```
+
 ## dumpallURL.py
 
 This file dumps all URLs which hosts connect to. Please edit [config.txt](config.txt) and add appropriate API keys.
@@ -78,7 +93,6 @@ python3 dumpallURL.py <config file.txt>
 Sample output:
 ```
 [+] Total computers found: 1
-
         [+] Querying: testbox.amp.local
                  [+] Outbound network event at hostname: testbox.amp.local
                          Host: testbox.amp.local URL: http://mirrorlist.centos.org/?release=7&arch=x86_64&repo=extras&infra=stock
