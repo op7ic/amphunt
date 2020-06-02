@@ -45,7 +45,7 @@ sha256hashfile = sys.argv[2]
 
 
 #Print header for CSV 
-print('date,guid,hostname,sha256,parent sha256,file_name,arguments')
+print('date,guid,hostname,sha256,parent sha256,file_name,file_path,arguments')
 try:
     fp = open(sha256hashfile,'r')
     for sha256hash in fp.readlines():
@@ -125,6 +125,7 @@ try:
                         file_sha256 = event['file']['identity']['sha256']
                         parent_sha256 = event['file']['parent']['identity']['sha256']
                         file_name = event['file']['file_name']
+                        file_path=event['file']['file_path']
                         #Print out line formatted for CSV
                         print("{},{},{},{},{},{},{}".format(timestamp,
                             guid,
@@ -132,12 +133,14 @@ try:
                             file_sha256,
                             parent_sha256,
                             file_name,
+                            file_path,
                             format_arguments(arguments)))
 
                     if 'file_name' in str(event) and 'command_line' not in str(event):
                         file_sha256 = event['file']['identity']['sha256']
                         parent_sha256 = event['file']['parent']['identity']['sha256']
                         file_name = event['file']['file_name']
+                        file_path=event['file']['file_path']
                         #Print out line formatted for CSV
                         print("{},{},{},{},{},{},{}".format(timestamp,
                             guid,
@@ -145,6 +148,7 @@ try:
                             file_sha256,
                             parent_sha256,
                             file_name,
+                            file_path,
                             "-"))
                         # the final line won't have command line so final argument is always "-"
             except:
