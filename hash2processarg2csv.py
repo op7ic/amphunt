@@ -9,11 +9,24 @@ import csv
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+
+# Store objects:
+computer_guids = {}
+
 def format_arguments(_arguments):
     """ If arguments are in a list join them as a single string"""
     if isinstance(_arguments, list):
         return ' '.join(_arguments)
     return _arguments
+
+def extractGUID(data):
+    """ Extract GUIDs from data structure and store them in computer_guids variable"""
+    for entry in data:
+        connector_guid = entry['connector_guid']
+        hostname = entry['hostname']
+        computer_guids.setdefault(connector_guid, {'hostname':hostname})
+
+
 
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -29,8 +42,7 @@ domainIP = config['settings']['domainIP']
 # Store the command line parameter
 sha256hashfile = sys.argv[2]
 
-# Store objects:
-computer_guids = {}
+
 
 #Print header for CSV 
 print('date,guid,hostname,sha256,parent sha256,file_name,arguments')
@@ -58,35 +70,39 @@ try:
                 
         # Decode first JSON response to determine if we got more pages to search
         response_event_json = response.json()
-        # Name data section of JSON
-        data = response_event_json['data']
-        # Name total section of JSON
-        total = response_event_json['metadata']['results']['total']
-		# Store unique connector GUIDs and hostnames on first, unpaged result
-        for entry in data:
-            connector_guid = entry['connector_guid']
-            hostname = entry['hostname']
-            computer_guids.setdefault(connector_guid, {'hostname':hostname})
 
-        # Handle pagination, add matching GUIDs to global array
-        while 'next' in response_event_json['metadata']['links']:
-            # Retrieve next URL link
-            next_url = response_event_json['metadata']['links']['next']
-            response_events = session.get(next_url,verify=False)
-            response_event_json_paged = response_events.json()
+        # Call extract GUID function to get all matched GUIDs
+        extractGUID(response_event_json['data'])
 
-            # Ensure we don't cross API limits, sleep if we are approaching limits
-            headers=response_events.headers
+        # Handle first paginated pages - this can probably be optimized
+        if('next' in response_event_json['metadata']['links']):
+            next_url = response_event_json['metadata']['links']['next'] # first page
+            response_events_paged = session.get(next_url,verify=False)
+            response_event_json_paged = response_events_paged.json()
+            total_paged = response_event_json_paged['metadata']['results']['total']
+            headers_paged=response_events_paged.headers
             if int(headers['X-RateLimit-Remaining']) < 10:
                 time.sleep(int(headers['X-RateLimit-Reset'])+5)
-
-            # Handle data object from next pages, append connector data to existing object
-            data_paged = response_event_json_paged['data']
-            # Store unique connector GUIDs and hostnames from next pages
-            for entry_paged in data_paged:
-                connector_guid = entry_paged['connector_guid']
-                hostname = entry_paged['hostname']
-                computer_guids.setdefault(connector_guid, {'hostname':hostname})
+            #Extract GUIDs
+            extractGUID(response_event_json_paged['data'])
+            # Follow up on remaining paginated
+            if ('next' in response_event_json_paged['metadata']['links']):
+                if ('prev' in response_event_json_paged['metadata']['links'] and 'next' in response_event_json_paged['metadata']['links']):
+                    try:
+                        while response_event_json_paged['metadata']['links']['next'] != response_event_json_paged['metadata']['links']['prev']:  
+                            next_url = response_event_json_paged['metadata']['links']['next'] # next paginated page
+                            response_events_paged = session.get(next_url,verify=False)
+                            response_event_json_paged = response_events_paged.json()
+                            total_paged = response_event_json_paged['metadata']['results']['total']
+                            headers_paged=response_events_paged.headers
+                            if int(headers['X-RateLimit-Remaining']) < 10:
+                                time.sleep(int(headers['X-RateLimit-Reset'])+5)
+                             #Extract GUIDs
+                            extractGUID(response_event_json_paged['data'])
+                    except KeyError:
+                        # ignore, we no longer have any pages left, any leftover was on the last page
+                        # KeyError comes simply from the fact that there is no 'next' so 'while' function above raises exception (TODO: Need to handle this better)
+                        pass
 
         # Finally, for each GUID on the list we match the args with trajectory (trajectory is limited to last 500 events however)
         for guid in computer_guids:
@@ -109,8 +125,6 @@ try:
                         file_sha256 = event['file']['identity']['sha256']
                         parent_sha256 = event['file']['parent']['identity']['sha256']
                         file_name = event['file']['file_name']
-                        direct_commands['process_names'].add(file_name)
-                        direct_commands['commands'].add(format_arguments(arguments))
                         #Print out line formatted for CSV
                         print("{},{},{},{},{},{},{}".format(timestamp,
                             guid,
