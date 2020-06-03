@@ -98,6 +98,21 @@ Sample output:
                          Host: testbox.amp.local URL: http://mirrorlist.centos.org/?release=7&arch=x86_64&repo=extras&infra=stock
 ```
 
+## dumpallURL2csv.py
+
+This is a reimplementation of [dumpallURL.py](dumpallURL.py) file with changed output format writing CSV which can be easily redirected to output file.
+
+How to invoke:
+```
+python3 dumpallURL2csv.py <config file.txt> > output.csv
+```
+
+Sample output:
+```
+date,guid,hostname,type,source ip,source port,destination ip,destination port,direction,domain,URL
+<date>,<guid>,<hostname>,<type>,<source ip>,<source port>,<destination ip>,<destination port>,<direction>,<domain>,<URL>
+```
+
 
 ## getSpecificEvent.py
 
