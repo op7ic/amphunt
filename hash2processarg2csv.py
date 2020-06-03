@@ -126,8 +126,9 @@ try:
                         parent_sha256 = event['file']['parent']['identity']['sha256']
                         file_name = event['file']['file_name']
                         file_path=event['file']['file_path']
-                        #Print out line formatted for CSV
-                        print("{},{},{},{},{},{},{}".format(timestamp,
+                        #Print out line formatted for CSV0
+                        print("{},{},{},{},{},{},{},{}".format(
+                            timestamp,
                             guid,
                             computer_guids[guid]['hostname'],
                             file_sha256,
@@ -142,7 +143,8 @@ try:
                         file_name = event['file']['file_name']
                         file_path=event['file']['file_path']
                         #Print out line formatted for CSV
-                        print("{},{},{},{},{},{},{}".format(timestamp,
+                        print("{},{},{},{},{},{},{},{}".format(
+                            timestamp,
                             guid,
                             computer_guids[guid]['hostname'],
                             file_sha256,
