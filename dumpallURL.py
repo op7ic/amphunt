@@ -2,19 +2,25 @@
 import sys
 import requests
 import configparser
+import time
+import gc
+from urllib.parse import urlparse
+
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-import time
+def extractDomainFromURL(url):
+    """ Extract domain name from URL"""
+    return urlparse(url).netloc
 
-def format_arguments(_arguments):
-    """ If arguments are in a list join them as a single string"""
-    if isinstance(_arguments, list):
-        return ' '.join(_arguments)
-    return _arguments
-
+def extractGUID(data):
+    """ Extract GUIDs from data structure and store them in computer_guids variable"""
+    for entry in data:
+        connector_guid = entry['connector_guid']
+        hostname = entry['hostname']
+        computer_guids.setdefault(connector_guid, {'hostname':hostname})
 
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -28,36 +34,57 @@ api_key = config['settings']['api_key']
 domainIP = config['settings']['domainIP']
 
 # Store the command line parameter
-remote_ips = {}
+computer_guids = {}
 
 try:
-	# Containers for output
-    computer_guids = {}
-    parent_to = {}
-    direct_commands = {'process_names':set(), 'commands':set()}
 
-	# Creat session object
-	# http://docs.python-requests.org/en/master/user/advanced/
-	# Using a session object gains efficiency when making multiple requests
+    # http://docs.python-requests.org/en/master/user/advanced/
+    # Using a session object gains efficiency when making multiple requests
     session = requests.Session()
     session.auth = (client_id, api_key)
 
-    #Define URL for extraction of all computers
+    # Define URL for extraction of all computers
     computers_url='https://{}/v1/computers'.format(domainIP)
     response = session.get(computers_url, verify=False)
     # Get Headers
     headers=response.headers
     # Ensure we don't cross API limits, sleep if we are approaching close to limits
     if int(headers['X-RateLimit-Remaining']) < 10:
-        print("[+] Sleeping {} seconds to ensure reset clock works".format(int(headers['X-RateLimit-Reset'])))
         time.sleep(int(headers['X-RateLimit-Reset'])+5)
     # Decode JSON response
     response_json = response.json()
-    data = response_json['data']
-    for entry in data:
-        connector_guid = entry['connector_guid']
-        hostname = entry['hostname']
-        computer_guids.setdefault(connector_guid, {'hostname':hostname})
+    #Page 1 extract all GUIDs
+    extractGUID(response_json['data'])
+
+    # Handle first paginated pages - this can probably be optimized
+    if('next' in response_json['metadata']['links']):
+        next_url = response_json['metadata']['links']['next'] # first page
+        response_events_paged = session.get(next_url,verify=False)
+        response_event_json_paged = response_events_paged.json()
+        total_paged = response_event_json_paged['metadata']['results']['total']
+        headers_paged=response_events_paged.headers
+        if int(headers['X-RateLimit-Remaining']) < 10:
+            time.sleep(int(headers['X-RateLimit-Reset'])+5)
+        #Extract GUIDs
+        extractGUID(response_event_json_paged['data'])
+        # Follow up on remaining paginated
+        if ('next' in response_event_json_paged['metadata']['links']):
+            if ('prev' in response_event_json_paged['metadata']['links'] and 'next' in response_event_json_paged['metadata']['links']):
+                try:
+                    while response_event_json_paged['metadata']['links']['next'] != response_event_json_paged['metadata']['links']['prev']:  
+                        next_url = response_event_json_paged['metadata']['links']['next'] # next paginated page
+                        response_events_paged = session.get(next_url,verify=False)
+                        response_event_json_paged = response_events_paged.json()
+                        total_paged = response_event_json_paged['metadata']['results']['total']
+                        headers_paged=response_events_paged.headers
+                        if int(headers['X-RateLimit-Remaining']) < 10:
+                            time.sleep(int(headers['X-RateLimit-Reset'])+5)
+                         #Extract GUIDs
+                        extractGUID(response_event_json_paged['data'])
+                except KeyError:
+                    # ignore, we no longer have any pages left, any leftover was on the last page
+                    # KeyError comes simply from the fact that there is no 'next' so 'while' function above raises exception (TODO: Need to handle this better)
+                    pass
     print('[+] Total computers found: {}'.format(len(computer_guids)))
     for guid in computer_guids:
         print('\n\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
@@ -84,12 +111,13 @@ try:
                         remote_ips[remote_ip]['ports'].append(remote_port)
                     if direction == 'Outgoing connection from':
                         print("\t\t [+] Outbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} Host: {} URL: {}'.format(time,computer_guids[guid]['hostname'], dirty_url))
+                        print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(time,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
                     if direction == 'Incoming connection from':
                         print("\t\t [+] Inbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} Host: {} URL: {}'.format(time,computer_guids[guid]['hostname'], dirty_url))
+                        print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(time,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
         except:
             pass
 
 finally:
+    gc.collect()
     print("[+] Done")
