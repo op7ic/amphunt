@@ -272,3 +272,5 @@ vulnerable software (using event code 1107296279)
 ## TODO
 
 - [ ] Output to CSV
+- [x] Handle pagination
+- [ ] Optimize output
