@@ -3,6 +3,8 @@ import sys
 import requests
 import configparser
 import time
+import gc
+from urllib.parse import urlparse
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -14,6 +16,11 @@ def extractGUID(data):
         connector_guid = entry['connector_guid']
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
+
+def extractDomainFromURL(url):
+    """ Extract domain name from URL"""
+    return urlparse(url).netloc
+
 
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -81,12 +88,13 @@ try:
                     pass
 
     print('[+] Total computers found: {}'.format(len(computer_guids)))
+
     for guid in computer_guids:
         print('\n\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
         trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+        trajectory_response = session.get(trajectory_url, verify=False)
+        trajectory_response_json = trajectory_response.json()
         try:
-            trajectory_response = session.get(trajectory_url, verify=False)
-            trajectory_response_json = trajectory_response.json()
             events = trajectory_response_json['data']['events']
             for event in events:
                 event_type = event['event_type']
@@ -99,26 +107,18 @@ try:
                     remote_ip = network_info['remote_ip']
                     remote_port = network_info['remote_port']
                     direction = network_info['nfm']['direction']
-                    if remote_ip not in remote_ips:
-                        remote_ips[remote_ip] = {'ports':[]}
-                    if remote_port not in remote_ips[remote_ip]['ports']:
-                        remote_ips[remote_ip]['ports'].append(remote_port)
                     if direction == 'Outgoing connection from':
                         print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                        print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(time,'outbound',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
                     if direction == 'Incoming connection from':
                         print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} : {} :  {} {}:{} <- {}:{}'.format(time,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                        print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(time,'inbound',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
                 if event_type == 'DFC Threat Detected':
                     network_info = event['network_info']
                     local_ip = network_info['local_ip']
                     local_port = network_info['local_port']
                     remote_ip = network_info['remote_ip']
                     remote_port = network_info['remote_port']
-                    if remote_ip not in remote_ips:
-                        remote_ips[remote_ip] = {'ports':[]}
-                    if remote_port not in remote_ips[remote_ip]['ports']:
-                        remote_ips[remote_ip]['ports'].append(remote_port)
                     print("\t\t [+] Device flow correlation network event at hostname : {} ".format(computer_guids[guid]['hostname']))
                     print('\t\t\t {} : {} DFC: {}:{} - {}:{}'.format(time,computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
                     
@@ -131,20 +131,16 @@ try:
                     remote_ip = network_info['remote_ip']
                     remote_port = network_info['remote_port']
                     direction = network_info['nfm']['direction']
-                    if remote_ip not in remote_ips:
-                        remote_ips[remote_ip] = {'ports':[]}
-                    if remote_port not in remote_ips[remote_ip]['ports']:
-                        remote_ips[remote_ip]['ports'].append(remote_port)
                     if direction == 'Outgoing connection from':
                         print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
                         print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(time,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        print('\t\t\t {} : {} : URL: {}'.format(time,computer_guids[guid]['hostname'],dirty_url))
+                        print('\t\t\t {} : {} : DOMAIN: {} : URL: {}'.format(time,computer_guids[guid]['hostname'],str(extractDomainFromURL(dirty_url)).replace(".","[.]"),str(dirty_url).replace(".","[.]")))
                     if direction == 'Incoming connection from':
                         print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
                         print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-        except:
+        except: # that shouldn't really happen
             pass
 
-
 finally:
+    gc.collect()
     print("[+] Done")
