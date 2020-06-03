@@ -27,7 +27,6 @@ def extractGUID(data):
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
 
 
-
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
     sys.exit('Usage:\n %s <config.txt> <hashfile.txt>' % sys.argv[0])
