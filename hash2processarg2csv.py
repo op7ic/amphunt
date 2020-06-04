@@ -135,22 +135,22 @@ try:
                             file_name,
                             file_path,
                             format_arguments(arguments)))
-
-                    if 'file_name' in str(event) and 'command_line' not in str(event):
-                        file_sha256 = event['file']['identity']['sha256']
-                        parent_sha256 = event['file']['parent']['identity']['sha256']
-                        file_name = event['file']['file_name']
-                        file_path=event['file']['file_path']
-                        #Print out line formatted for CSV
-                        print("{},{},{},{},{},{},{},{}".format(
-                            timestamp,
-                            guid,
-                            computer_guids[guid]['hostname'],
-                            file_sha256,
-                            parent_sha256,
-                            file_name,
-                            file_path,
-                            "-"))
+                    # this is only sensible to hunt for any binary not the arguments
+                    # if 'file_name' in str(event) and 'command_line' not in str(event):
+                    #     file_sha256 = event['file']['identity']['sha256']
+                    #     parent_sha256 = event['file']['parent']['identity']['sha256']
+                    #     file_name = event['file']['file_name']
+                    #     file_path=event['file']['file_path']
+                    #     #Print out line formatted for CSV
+                    #     print("{},{},{},{},{},{},{},{}".format(
+                    #         timestamp,
+                    #         guid,
+                    #         computer_guids[guid]['hostname'],
+                    #         file_sha256,
+                    #         parent_sha256,
+                    #         file_name,
+                    #         file_path,
+                    #         "-"))
                         # the final line won't have command line so final argument is always "-"
             except:
                  pass
