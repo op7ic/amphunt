@@ -40,7 +40,7 @@ domainIP = config['settings']['domainIP']
 remote_ips = {}
 
 #Print header for CSV 
-print('date,guid,hostname,type,source ip,source port,destination ip,destination port,direction,domain,URL')
+print('date,guid,hostname,type,source_ip,source_port,destination_ip,destination_port,direction,domain,URL')
 
 try:
     # Creat session object

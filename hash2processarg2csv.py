@@ -44,7 +44,7 @@ sha256hashfile = sys.argv[2]
 
 
 #Print header for CSV 
-print('date,guid,hostname,sha256,parent sha256,file_name,file_path,arguments')
+print('date,guid,hostname,sha256,parent_sha256,file_name,file_path,arguments')
 try:
     fp = open(sha256hashfile,'r')
     for sha256hash in fp.readlines():
