@@ -47,6 +47,23 @@ How to invoke:
 python3 hash2connection.py <config file.txt> <hashset/cmd.txt>
 ```
 
+## hash2connection2csv.py
+
+This is a reimplementation of [hash2connection.py](hash2connection.py) file with changed output format writing CSV which can be easily redirected to output file.
+
+
+How to invoke:
+```
+python3 hash2connection2csv.py <config file.txt> <hashset/cmd.txt>
+```
+Sample output:
+```
+date,guid,hostname,type,SHA256,source_ip,source_port,destination_ip,destination_port,direction,domain,URL
+<date>,<guid>,<hostname>,<type of telemetry>,<sha256>,<source IP>,<source port>,<destination IP>,<destination port>,<inbound/outbound>,<domain>,<URL>
+<date>,<guid>,<hostname>,<type of telemetry>,<sha256>,<source IP>,<source port>,<destination IP>,<destination port>,<inbound/outbound>,<domain>,<URL>
+```
+
+
 ## allconnections.py
 
 This file dumps all connections recorded in AMP against specific host. Please edit [config.txt](config.txt) and add appropriate API keys.
