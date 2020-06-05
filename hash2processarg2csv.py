@@ -48,19 +48,19 @@ print('date,guid,hostname,sha256,parent sha256,file_name,file_path,arguments')
 try:
     fp = open(sha256hashfile,'r')
     for sha256hash in fp.readlines():
-		# Creat session object
-		# http://docs.python-requests.org/en/master/user/advanced/
-		# Using a session object gains efficiency when making multiple requests
+        # Creat session object
+        # http://docs.python-requests.org/en/master/user/advanced/
+        # Using a session object gains efficiency when making multiple requests
         session = requests.Session()
         session.auth = (client_id, api_key)
 
-		# Define URL and parameters
+        # Define URL and parameters
         activity_url = 'https://{}/v1/computers/activity'.format(domainIP)
         payload = {'q': sha256hash.strip()}
 
-		# Query API
+        # Query API
         response = session.get(activity_url, params=payload, verify=False)
-      	# Get Headers
+        # Get Headers
         headers=response.headers
 
         # Ensure we don't cross API limits, sleep if we are approaching close to limits
@@ -73,35 +73,13 @@ try:
         # Call extract GUID function to get all matched GUIDs
         extractGUID(response_event_json['data'])
 
-        # Handle first paginated pages - this can probably be optimized
+        # Handle paginated pages and extract computer GUIDs
         if('next' in response_event_json['metadata']['links']):
-            next_url = response_event_json['metadata']['links']['next'] # first page
-            response_events_paged = session.get(next_url,verify=False)
-            response_event_json_paged = response_events_paged.json()
-            total_paged = response_event_json_paged['metadata']['results']['total']
-            headers_paged=response_events_paged.headers
-            if int(headers['X-RateLimit-Remaining']) < 10:
-                time.sleep(int(headers['X-RateLimit-Reset'])+5)
-            #Extract GUIDs
-            extractGUID(response_event_json_paged['data'])
-            # Follow up on remaining paginated
-            if ('next' in response_event_json_paged['metadata']['links']):
-                if ('prev' in response_event_json_paged['metadata']['links'] and 'next' in response_event_json_paged['metadata']['links']):
-                    try:
-                        while response_event_json_paged['metadata']['links']['next'] != response_event_json_paged['metadata']['links']['prev']:  
-                            next_url = response_event_json_paged['metadata']['links']['next'] # next paginated page
-                            response_events_paged = session.get(next_url,verify=False)
-                            response_event_json_paged = response_events_paged.json()
-                            total_paged = response_event_json_paged['metadata']['results']['total']
-                            headers_paged=response_events_paged.headers
-                            if int(headers['X-RateLimit-Remaining']) < 10:
-                                time.sleep(int(headers['X-RateLimit-Reset'])+5)
-                             #Extract GUIDs
-                            extractGUID(response_event_json_paged['data'])
-                    except KeyError:
-                        # ignore, we no longer have any pages left, any leftover was on the last page
-                        # KeyError comes simply from the fact that there is no 'next' so 'while' function above raises exception (TODO: Need to handle this better)
-                        pass
+            while 'next' in response_event_json['metadata']['links']:
+                next_url = response_event_json['metadata']['links']['next']
+                response = session.get(next_url)
+                response_event_json = response.json()
+                extractGUID(response_event_json['data'])
 
         # Finally, for each GUID on the list we match the args with trajectory (trajectory is limited to last 500 events however)
         for guid in computer_guids:

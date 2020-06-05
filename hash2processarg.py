@@ -14,6 +14,13 @@ def format_arguments(_arguments):
     if isinstance(_arguments, list):
         return ' '.join(_arguments)
     return _arguments
+
+def extractGUID(data):
+    """ Extract GUIDs from data structure and store them in computer_guids variable"""
+    for entry in data:
+        connector_guid = entry['connector_guid']
+        hostname = entry['hostname']
+        computer_guids.setdefault(connector_guid, {'hostname':hostname})
     
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -59,14 +66,19 @@ try:
             time.sleep(int(headers['X-RateLimit-Reset'])+5)
 		# Decode JSON response
         response_json = response.json()
+        # Extract GUIDs from first page
+        extractGUID(response_json['data'])
+        # Handle paginated pages and extract computer GUIDs
+        if('next' in response_json['metadata']['links']):
+            while 'next' in response_json['metadata']['links']:
+                if int(headers['X-RateLimit-Remaining']) < 10:
+                    print("[+] Sleeping {} seconds to ensure reset clock works".format(int(headers['X-RateLimit-Reset'])))
+                    time.sleep(int(headers['X-RateLimit-Reset'])+5)
+                next_url = response_json['metadata']['links']['next']
+                response = session.get(next_url)
+                response_json = response.json()
+                extractGUID(response_json['data'])
 
-		# Name data section of JSON
-        data = response_json['data']
-		# Store unique connector GUIDs and hostnames
-        for entry in data:
-            connector_guid = entry['connector_guid']
-            hostname = entry['hostname']
-            computer_guids.setdefault(connector_guid, {'hostname':hostname})
         print('\t[+] Computers found: {}'.format(len(computer_guids)))
 
         # Query trajectory for each GUID

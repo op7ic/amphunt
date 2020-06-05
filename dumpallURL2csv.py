@@ -62,35 +62,14 @@ try:
     #Page 1 extract all GUIDs
     extractGUID(response_json['data'])
 
-    # Handle first paginated pages - this can probably be optimized
+    # Handle paginated pages and extract computer GUIDs
     if('next' in response_json['metadata']['links']):
-        next_url = response_json['metadata']['links']['next'] # first page
-        response_events_paged = session.get(next_url,verify=False)
-        response_event_json_paged = response_events_paged.json()
-        total_paged = response_event_json_paged['metadata']['results']['total']
-        headers_paged=response_events_paged.headers
-        if int(headers['X-RateLimit-Remaining']) < 10:
-            time.sleep(int(headers['X-RateLimit-Reset'])+5)
-        #Extract GUIDs
-        extractGUID(response_event_json_paged['data'])
-        # Follow up on remaining paginated
-        if ('next' in response_event_json_paged['metadata']['links']):
-            if ('prev' in response_event_json_paged['metadata']['links'] and 'next' in response_event_json_paged['metadata']['links']):
-                try:
-                    while response_event_json_paged['metadata']['links']['next'] != response_event_json_paged['metadata']['links']['prev']:  
-                        next_url = response_event_json_paged['metadata']['links']['next'] # next paginated page
-                        response_events_paged = session.get(next_url,verify=False)
-                        response_event_json_paged = response_events_paged.json()
-                        total_paged = response_event_json_paged['metadata']['results']['total']
-                        headers_paged=response_events_paged.headers
-                        if int(headers['X-RateLimit-Remaining']) < 10:
-                            time.sleep(int(headers['X-RateLimit-Reset'])+5)
-                         #Extract GUIDs
-                        extractGUID(response_event_json_paged['data'])
-                except KeyError:
-                    # ignore, we no longer have any pages left, any leftover was on the last page
-                    # KeyError comes simply from the fact that there is no 'next' so 'while' function above raises exception (TODO: Need to handle this better)
-                    pass
+        while 'next' in response_json['metadata']['links']:
+            next_url = response_json['metadata']['links']['next']
+            response = session.get(next_url)
+            response_json = response.json()
+            extractGUID(response_json['data'])
+            
     for guid in computer_guids:
         trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
         trajectory_response = session.get(trajectory_url, verify=False)
