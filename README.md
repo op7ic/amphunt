@@ -267,6 +267,7 @@ psexec-svc
 nltest
 net + administrator
 vulnerable software (using event code 1107296279)
+wevtutil.exe cl (cleanup ofr event logs)
 ```
 
 ## TODO
