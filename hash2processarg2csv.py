@@ -78,6 +78,12 @@ try:
             while 'next' in response_event_json['metadata']['links']:
                 next_url = response_event_json['metadata']['links']['next']
                 response = session.get(next_url)
+                headers=response.headers
+                # Ensure we don't cross API limits, sleep if we are approaching close to limits
+                if int(headers['X-RateLimit-Remaining']) < 10:
+                    timeout=int(headers['X-RateLimit-Reset'])
+                    time.sleep(timeout+5)
+                # Extract
                 response_event_json = response.json()
                 extractGUID(response_event_json['data'])
 

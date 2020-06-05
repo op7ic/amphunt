@@ -71,15 +71,17 @@ try:
         # Handle paginated pages and extract computer GUIDs
         if('next' in response_json['metadata']['links']):
             while 'next' in response_json['metadata']['links']:
-                if int(headers['X-RateLimit-Remaining']) < 10:
-                    print("[+] Sleeping {} seconds to ensure reset clock works".format(int(headers['X-RateLimit-Reset'])))
-                    time.sleep(int(headers['X-RateLimit-Reset'])+5)
                 next_url = response_json['metadata']['links']['next']
                 response = session.get(next_url)
+                headers=response.headers
+                # Ensure we don't cross API limits, sleep if we are approaching close to limits
+                if int(headers['X-RateLimit-Remaining']) < 10:
+                    timeout=int(headers['X-RateLimit-Reset'])
+                    time.sleep(timeout+5)
+                # Extract
                 response_json = response.json()
                 extractGUID(response_json['data'])
-
-        print('\t[+] Computers found: {}'.format(len(computer_guids)))
+            print('\t[+] Computers found: {}'.format(len(computer_guids)))
 
         # Query trajectory for each GUID
         for guid in computer_guids:
