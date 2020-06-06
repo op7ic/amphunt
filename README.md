@@ -335,6 +335,6 @@ AMP activity timeline allows to search only last 500 events so historical data m
 - [x] Output to CSV
 - [x] Handle pagination
 - [ ] Optimize output
-- [ ] Better exception / error handling
+- [ ] Better exception / error handling / code quality. These tools are mostly PoC for now
 - [ ] Threading
 - [x] Hash various security tools/exploits from public repos
