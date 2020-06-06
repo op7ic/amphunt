@@ -97,13 +97,88 @@ try:
             trajectory_response_json = trajectory_response.json()
             # Name events section of JSON
             try:
+
                 events = trajectory_response_json['data']['events']
+
                 # Parse trajectory events to find the network events
                 for event in events:
                     time=event['date']
                     event_type = event['event_type']
+                    # Search for executed
+                    if 'Moved by' in str(event_type):
+                        # Search for any command lines executed
+                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
+                            arguments = event['command_line']['arguments']
+                            file_sha256 = event['file']['identity']['sha256']
+                            parent_sha256 = event['file']['parent']['identity']['sha256']
+                            file_name = event['file']['file_name']
+                            direct_commands['process_names'].add(file_name)
+                            direct_commands['commands'].add(format_arguments(arguments))
+                            print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
+                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                        #Search for any binaries
+                        if 'file_name' in str(event) and 'command_line' not in str(event):
+                            print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
+                            print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
+                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+
+                    if 'Threat Detected' in str(event_type):
+                        # Search for any command lines executed
+                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
+                            arguments = event['command_line']['arguments']
+                            file_sha256 = event['file']['identity']['sha256']
+                            parent_sha256 = event['file']['parent']['identity']['sha256']
+                            file_name = event['file']['file_name']
+                            direct_commands['process_names'].add(file_name)
+                            direct_commands['commands'].add(format_arguments(arguments))
+                            print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
+                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                        #Search for any binaries
+                        if 'file_name' in str(event) and 'command_line' not in str(event):
+                            print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
+                            print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
+                            if 'parent' in str(event):
+                                print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+                            else:
+                                pass
+
+                    if 'Malicious Activity Detection' in str(event_type):
+                        # Search for any command lines executed
+                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
+                            arguments = event['command_line']['arguments']
+                            file_sha256 = event['file']['identity']['sha256']
+                            parent_sha256 = event['file']['parent']['identity']['sha256']
+                            file_name = event['file']['file_name']
+                            direct_commands['process_names'].add(file_name)
+                            direct_commands['commands'].add(format_arguments(arguments))
+                            print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
+                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                        #Search for any binaries
+                        if 'file_name' in str(event) and 'command_line' not in str(event):
+                            print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
+                            print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
+                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+
+                    if 'Created' in str(event_type):
+                        # Search for any command lines executed
+                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
+                            arguments = event['command_line']['arguments']
+                            file_sha256 = event['file']['identity']['sha256']
+                            parent_sha256 = event['file']['parent']['identity']['sha256']
+                            file_name = event['file']['file_name']
+                            direct_commands['process_names'].add(file_name)
+                            direct_commands['commands'].add(format_arguments(arguments))
+                            print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
+                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                        #Search for any binaries
+                        if 'file_name' in str(event) and 'command_line' not in str(event):
+                            print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
+                            print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
+                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+
+
                     if 'Executed' in str(event_type):
-                        # Search for any command lines
+                        # Search for any command lines executed
                         if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
                             arguments = event['command_line']['arguments']
                             file_sha256 = event['file']['identity']['sha256']
@@ -159,7 +234,7 @@ try:
                         if direction == 'Incoming connection from':
                             print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
                             print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-            except:
+            except:# sometimes we get 404 on connector (it no longer exist but data is still in the activity)
                 pass
      
 finally:
