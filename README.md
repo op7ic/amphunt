@@ -150,9 +150,6 @@ notepad64
 ransom
 ```
 
-Sample output:
-```
-```
 
 ## getSpecificEvent.py
 
