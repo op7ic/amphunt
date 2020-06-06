@@ -1,10 +1,10 @@
 # amphunt
 
-This repository contains basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based on already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards handling file inputs. In addition, SHA256 hashes for specific processes were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository. Each script takes at least config file as argument.
+This repository contains basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based on already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards handling file inputs, csv output and pagination. Known Windows SHA256 hashes were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository and can be used to hunt for potentially bad commands such as ```net user admin /add``` which rely on build-in Windows tool. In addition, various GitHub repositories with known hacking toolkits, such as [sqlmap](https://github.com/sqlmapproject/sqlmap), [LaZagne](https://github.com/AlessandroZ/LaZagne) were also hashed to provide ability for hunting on both current and past versions of these tools. Please be aware that each script takes at least config file as argument.
 
 ## hash2processarg.py
 
-This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes along with executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments. Please edit [config.txt](config.txt) and add appropriate API keys.
+This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes along with executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments or to hunt for malicious processes lunched by specific hash. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 ```
@@ -63,10 +63,9 @@ date,guid,hostname,type,SHA256,source_ip,source_port,destination_ip,destination_
 <date>,<guid>,<hostname>,<type of telemetry>,<sha256>,<source IP>,<source port>,<destination IP>,<destination port>,<inbound/outbound>,<domain>,<URL>
 ```
 
-
 ## allconnections.py
 
-This file dumps all connections recorded in AMP against specific host. Please edit [config.txt](config.txt) and add appropriate API keys.
+This file dumps all connections recorded in AMP against all hosts. It can be quite noisy. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 ```
@@ -100,7 +99,7 @@ date,guid,hostname,telemetry source,source_ip,source_port,destination,destinatio
 
 ## dumpallURL.py
 
-This file dumps all URLs which hosts connect to. Please edit [config.txt](config.txt) and add appropriate API keys.
+This file dumps all accessed URLs for all hosts. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 ```
@@ -129,7 +128,6 @@ Sample output:
 date,guid,hostname,type,source ip,source port,destination ip,destination port,direction,domain,URL
 <date>,<guid>,<hostname>,<type>,<source ip>,<source port>,<destination ip>,<destination port>,<direction>,<domain>,<URL>
 ```
-
 
 ## getSpecificEvent.py
 
@@ -257,11 +255,6 @@ List of available event codes can be retrieved using [API function event_types](
 1107296344 : SecureX Threat Hunting Incident
 ```
 
-## Limitations
-
-AMP timeline allows to search only last 500 events so historical data might be limited
-
-
 ## AMP4E API Endpoints 
 
 - ```api.eu.amp.cisco.com``` - AMP EU 
@@ -287,10 +280,38 @@ vulnerable software (using event code 1107296279)
 wevtutil.exe cl (cleanup ofr event logs)
 ```
 
+## Downloading github hashes for popular hacking tools:
+
+Various GitHub repositories can also be used for hunting. SHA256 hashes, from GitHub repositories, along with historic versions, are captured in the [hashset](hashset/) directory under either [exploits](hashset/exploits) folder or [hacking-tools](hashset/hacking-tools). At present, the following repositories are fully hashed (including all historical commits):
+
+- [linux-kernel-exploits](https://github.com/SecWiki/linux-kernel-exploits)
+- [LaZagne](https://github.com/AlessandroZ/LaZagne)
+- [BeRoot](https://github.com/AlessandroZ/BeRoot)
+- [LaZagneForensic](https://github.com/AlessandroZ/LaZagneForensic)
+- [Ghostpack-CompiledBinaries](https://github.com/r3motecontrol/Ghostpack-CompiledBinaries)
+- [PowerSCCM](https://github.com/PowerShellMafia/PowerSCCM)
+- [PowerSploit](https://github.com/PowerShellMafia/PowerSploit)
+- [PoshC2_Old](https://github.com/nettitude/PoshC2_Old)
+- [impacket](https://github.com/SecureAuthCorp/impacket)
+- [PoshC2](https://github.com/nettitude/PoshC2)
+- [windows-kernel-exploits](https://github.com/SecWiki/windows-kernel-exploits)
+- [sqlmap](https://github.com/sqlmapproject/sqlmap)
+
+Script, similar to the one below, were used in the process of GitHub hashing:
+```
+#https://github.com/AlessandroZ/LaZagneForensic (oneliner to get all SHA256)
+git clone https://github.com/AlessandroZ/LaZagneForensic LaZagneForensic && cd LaZagneForensic && mkdir temp-commits && mkdir unzipped-commits && git log --pretty=oneline | awk '{print $1}' | sort | uniq > ../LaZagneForensic-commits.txt && while read p; do wget https://github.com/AlessandroZ/LaZagneForensic/archive/$p.zip -P temp-commits/ && unzip temp-commits/$p.zip -d unzipped-commits/ && rm -rf temp-commits/$p.zip && find unzipped-commits/*-$p -type f -print0 | xargs -0 sha256sum >> ../LaZagneForensic-sha256-tosorte.txt && rm -rf unzipped-commits/*-$p; done <../LaZagneForensic-commits.txt && cat ../LaZagneForensic-sha256-tosorte.txt | awk '{print $1}' | sort | uniq > ../LaZagneForensic-sha256.txt
+```
+
+## Limitations
+
+AMP activity timeline allows to search only last 500 events so historical data might be limited.
+
 ## TODO
 
-- [ ] Output to CSV
+- [x] Output to CSV
 - [x] Handle pagination
 - [ ] Optimize output
 - [ ] Better exception / error handling
 - [ ] Threading
+- [x] Hash various security tools/exploits from public repos
