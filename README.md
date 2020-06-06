@@ -1,10 +1,10 @@
 # amphunt
 
-This repository contains basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based on already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards handling file inputs, csv output and pagination. Known Windows SHA256 hashes were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository and can be used to hunt for potentially bad commands such as ```net user admin /add``` which rely on build-in Windows tool. In addition, various GitHub repositories with known hacking toolkits, such as [sqlmap](https://github.com/sqlmapproject/sqlmap), [LaZagne](https://github.com/AlessandroZ/LaZagne) were also hashed to provide ability for hunting on both current and past versions of these tools. Please be aware that each script takes at least config file as argument.
+This repository contains basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based on already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards handling file inputs, csv output and pagination. Known Windows SHA256 hashes were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository and can be used to hunt for potentially bad commands such as ```net user admin /add``` which rely on built-in Windows tool. In addition, various GitHub repositories with known hacking toolkits, such as [sqlmap](https://github.com/sqlmapproject/sqlmap), [LaZagne](https://github.com/AlessandroZ/LaZagne) were also hashed to provide the ability for hunting on both current and past versions of these tools. Please be aware that each script takes at least a config file as argument.
 
 ## hash2processarg.py
 
-This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes along with executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments or to hunt for malicious processes lunched by specific hash. Please edit [config.txt](config.txt) and add appropriate API keys.
+This script takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer name with matching processes along with the executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments or to hunt for malicious processes launched by specific hash. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 ```
@@ -39,7 +39,7 @@ date,guid,hostname,sha256,Parent sha256,file_name,arguments
 
 ## hash2connection.py
 
-This file takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes and where these processes communicates to. Please edit [config.txt](config.txt) and add appropriate API keys.
+This script takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes and where these processes communicates to. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 
 How to invoke:
@@ -65,7 +65,7 @@ date,guid,hostname,type,SHA256,source_ip,source_port,destination_ip,destination_
 
 ## allconnections.py
 
-This file dumps all connections recorded in AMP against all hosts. It can be quite noisy. Please edit [config.txt](config.txt) and add appropriate API keys.
+This script dumps all connections recorded in AMP against all hosts. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 ```
@@ -99,7 +99,7 @@ date,guid,hostname,telemetry source,source_ip,source_port,destination,destinatio
 
 ## dumpallURL.py
 
-This file dumps all accessed URLs for all hosts. Please edit [config.txt](config.txt) and add appropriate API keys.
+This script dumps all accessed URLs for all hosts. Please edit [config.txt](config.txt) and add appropriate API keys.
 
 How to invoke:
 ```
@@ -127,6 +127,31 @@ Sample output:
 ```
 date,guid,hostname,type,source ip,source port,destination ip,destination port,direction,domain,URL
 <date>,<guid>,<hostname>,<type>,<source ip>,<source port>,<destination ip>,<destination port>,<direction>,<domain>,<URL>
+```
+
+## multikeyword_search.py
+
+This script takes a config file and list with keywords (one per line) and searches for processes/commands/network connections related to these keywords.
+
+How to invoke:
+```
+python3 multikeyword_search.py <config file.txt> <keyword file>
+```
+
+Sample keyword file:
+```
+winword.exe
+explorer.exe
+192.168.20.2
+explorer.exe
+rundll32.exe
+notepad.exe
+notepad64
+ransom
+```
+
+Sample output:
+```
 ```
 
 ## getSpecificEvent.py
@@ -278,11 +303,12 @@ nltest
 net + administrator
 vulnerable software (using event code 1107296279)
 wevtutil.exe cl (cleanup ofr event logs)
+hacking tools (see hashset/hacking-tools)
 ```
 
-## Downloading github hashes for popular hacking tools:
+## GitHub hashes for popular hacking tools:
 
-Various GitHub repositories can also be used for hunting. SHA256 hashes, from GitHub repositories, along with historic versions, are captured in the [hashset](hashset/) directory under either [exploits](hashset/exploits) folder or [hacking-tools](hashset/hacking-tools). At present, the following repositories are fully hashed (including all historical commits):
+Various GitHub repositories can also be used for hunting. SHA256 hashes from these repositories, along with historic versions, are captured in the [hashset](hashset/) directory under either the [exploits](hashset/exploits) folder or the [hacking-tools](hashset/hacking-tools). At present, the following repositories are fully hashed (including all historical commits):
 
 - [linux-kernel-exploits](https://github.com/SecWiki/linux-kernel-exploits)
 - [LaZagne](https://github.com/AlessandroZ/LaZagne)
@@ -305,7 +331,7 @@ git clone https://github.com/AlessandroZ/LaZagneForensic LaZagneForensic && cd L
 
 ## Limitations
 
-AMP activity timeline allows to search only last 500 events so historical data might be limited.
+AMP activity timeline allows to search only last 500 events so historical data might be limited. 
 
 ## TODO
 

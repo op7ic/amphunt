@@ -7,9 +7,8 @@ import gc
 from urllib.parse import urlparse
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
+#from requests.packages.urllib3.exceptions import InsecureRequestWarning
+#requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # Containers for GUIDs
 computer_guids = {}
@@ -35,9 +34,6 @@ config.read(sys.argv[1])
 client_id = config['settings']['client_id']
 api_key = config['settings']['api_key']
 domainIP = config['settings']['domainIP']
-
-# Store the command line parameter
-remote_ips = {}
 
 #Print header for CSV 
 print('date,guid,hostname,source_ip,source_port,destination_ip,destination_port,direction,domain,URL')

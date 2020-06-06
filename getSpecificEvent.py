@@ -12,8 +12,8 @@ from operator import itemgetter
 from itertools import groupby 
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+#from requests.packages.urllib3.exceptions import InsecureRequestWarning
+#requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 # Get all leaves from JSON file so headers can be used for CSV
