@@ -320,11 +320,6 @@ Various GitHub repositories can also be used for hunting. SHA256 hashes from the
 - [windows-kernel-exploits](https://github.com/SecWiki/windows-kernel-exploits)
 - [sqlmap](https://github.com/sqlmapproject/sqlmap)
 
-Script, similar to the one below, were used in the process of GitHub hashing:
-```
-#https://github.com/AlessandroZ/LaZagneForensic (oneliner to get all SHA256)
-git clone https://github.com/AlessandroZ/LaZagneForensic LaZagneForensic && cd LaZagneForensic && mkdir temp-commits && mkdir unzipped-commits && git log --pretty=oneline | awk '{print $1}' | sort | uniq > ../LaZagneForensic-commits.txt && while read p; do wget https://github.com/AlessandroZ/LaZagneForensic/archive/$p.zip -P temp-commits/ && unzip temp-commits/$p.zip -d unzipped-commits/ && rm -rf temp-commits/$p.zip && find unzipped-commits/*-$p -type f -print0 | xargs -0 sha256sum >> ../LaZagneForensic-sha256-tosorte.txt && rm -rf unzipped-commits/*-$p; done <../LaZagneForensic-commits.txt && cat ../LaZagneForensic-sha256-tosorte.txt | awk '{print $1}' | sort | uniq > ../LaZagneForensic-sha256.txt
-```
 
 ## Limitations
 
