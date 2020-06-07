@@ -90,49 +90,51 @@ try:
         malicious_activity=0
         exec_blocked=0
         exec_malware=0
-        # try:
-        events = trajectory_response_json['data']['events']
-        for event in events:
-            event_type = event['event_type']
-            time = event['date'] 
+        try:
+            events = trajectory_response_json['data']['events']
+            for event in events:
+                event_type = event['event_type']
+                time = event['date'] 
 
-            #filter by specific event type  
-            if event_type == 'Vulnerable Application Detected':
-                vulnerable+=1
-            if event_type == 'NFM':
-                nfm+=1
-            if event_type == 'Executed by':
-                executed+=1
-            if event_type == 'Created by':
-                create+=1
-            if event_type == 'Moved by':
-                moved+=1
-            if event_type == 'Threat Quarantined':
-                threat_q+=1
-            if event_type == 'Threat Detected':
-                threat_d+=1
-            if event_type == 'Quarantine Failure':
-                quarantine_fail+=1
-            if event_type == 'Malicious Activity Detection':
-                malicious_activity+=1
-            if event_type == 'Execution Blocked':
-                exec_blocked+=1
-            if event_type == 'Executed Malware':
-                exec_malware+=1
-        print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
-            time,
-            guid,
-            computer_guids[guid]['hostname'],
-            vulnerable,
-            nfm,
-            executed,
-            create,
-            moved,
-            threat_q,
-            threat_d,
-            quarantine_fail,
-            malicious_activity,
-            exec_blocked,
-            exec_malware))
+                #filter by specific event type  
+                if event_type == 'Vulnerable Application Detected':
+                    vulnerable+=1
+                if event_type == 'NFM':
+                    nfm+=1
+                if event_type == 'Executed by':
+                    executed+=1
+                if event_type == 'Created by':
+                    create+=1
+                if event_type == 'Moved by':
+                    moved+=1
+                if event_type == 'Threat Quarantined':
+                    threat_q+=1
+                if event_type == 'Threat Detected':
+                    threat_d+=1
+                if event_type == 'Quarantine Failure':
+                    quarantine_fail+=1
+                if event_type == 'Malicious Activity Detection':
+                    malicious_activity+=1
+                if event_type == 'Execution Blocked':
+                    exec_blocked+=1
+                if event_type == 'Executed Malware':
+                    exec_malware+=1
+            print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
+                time,
+                guid,
+                computer_guids[guid]['hostname'],
+                vulnerable,
+                nfm,
+                executed,
+                create,
+                moved,
+                threat_q,
+                threat_d,
+                quarantine_fail,
+                malicious_activity,
+                exec_blocked,
+                exec_malware))
+        except:
+            pass
 finally:
     gc.collect()
