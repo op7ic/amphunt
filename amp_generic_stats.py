@@ -33,7 +33,7 @@ def getStatsOut(guid):
     # Ensure we don't cross API limits, sleep if we are approaching close to limits
     if int(headers['X-RateLimit-Remaining']) < 10:
         timeout=int(headers['X-RateLimit-Reset'])
-        time.sleep(timeout+5)
+        time.sleep(int(timeout)+5)
     # define variables which will be applicable per each GUID
     vulnerable=0
     nfm=0
