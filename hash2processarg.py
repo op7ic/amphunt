@@ -2,12 +2,11 @@
 import sys
 import requests
 import configparser
+import time
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-import time
 
 def format_arguments(_arguments):
     """ If arguments are in a list join them as a single string"""
