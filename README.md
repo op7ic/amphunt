@@ -293,9 +293,12 @@ List of available event codes can be retrieved using [API function event_types](
 
 ## AMP4E API Endpoints 
 
+AMP API endpoint need to be specified in the config file under 'domainIP' parameter. Please choose one depending on location of your console:
+
 - ```api.eu.amp.cisco.com``` - AMP EU 
 - ```api.amp.cisco.com``` - AMP
 - ```api.apjc.amp.cisco.com``` - AMP APJC
+
 
 ## Examples of useful things to grep and search for:
 
