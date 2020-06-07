@@ -67,22 +67,22 @@ def searchConnections(guid):
                 print("\t\t [+] Device flow correlation network event at hostname : {} ".format(computer_guids[guid]['hostname']))
                 print('\t\t\t {} : {} DFC: {}:{} - {}:{}'.format(time,computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
                 
-            if event_type == 'NFM' and 'dirty_url' in str(event):
-                network_info = event['network_info']
-                dirty_url= event['network_info']['dirty_url']
-                protocol = network_info['nfm']['protocol']
-                local_ip = network_info['local_ip']
-                local_port = network_info['local_port']
-                remote_ip = network_info['remote_ip']
-                remote_port = network_info['remote_port']
-                direction = network_info['nfm']['direction']
-                if direction == 'Outgoing connection from':
-                    print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(time,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                    print('\t\t\t {} : {} : DOMAIN: {} : URL: {}'.format(time,computer_guids[guid]['hostname'],str(extractDomainFromURL(dirty_url)).replace(".","[.]"),str(dirty_url).replace(".","[.]")))
-                if direction == 'Incoming connection from':
-                    print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+            # if event_type == 'NFM' and 'dirty_url' in str(event):
+            #     network_info = event['network_info']
+            #     dirty_url= event['network_info']['dirty_url']
+            #     protocol = network_info['nfm']['protocol']
+            #     local_ip = network_info['local_ip']
+            #     local_port = network_info['local_port']
+            #     remote_ip = network_info['remote_ip']
+            #     remote_port = network_info['remote_port']
+            #     direction = network_info['nfm']['direction']
+            #     if direction == 'Outgoing connection from':
+            #         print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
+            #         print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(time,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+            #         print('\t\t\t {} : {} : DOMAIN: {} : URL: {}'.format(time,computer_guids[guid]['hostname'],str(extractDomainFromURL(dirty_url)).replace(".","[.]"),str(dirty_url).replace(".","[.]")))
+            #     if direction == 'Incoming connection from':
+            #         print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
+            #         print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
     except: 
         # that shouldn't really happen however sometimes connectors give back 404 error. This is because data exist in timeline but connector appear to be dead?
         pass

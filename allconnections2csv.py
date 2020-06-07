@@ -96,41 +96,41 @@ def searchConnections(guid):
                         'DFC Threat Detected',
                         '-',
                         '-'))                    
-            if event_type == 'NFM' and 'dirty_url' in str(event):
-                network_info = event['network_info']
-                dirty_url= event['network_info']['dirty_url']
-                protocol = network_info['nfm']['protocol']
-                local_ip = network_info['local_ip']
-                local_port = network_info['local_port']
-                remote_ip = network_info['remote_ip']
-                remote_port = network_info['remote_port']
-                direction = network_info['nfm']['direction']
-                if direction == 'Outgoing connection from':
-                    print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                        time,
-                        guid,
-                        computer_guids[guid]['hostname'],
-                        'NFM URL',
-                        local_ip,
-                        local_port,
-                        remote_ip,
-                        remote_port,
-                        'outbound',
-                        str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
-                        str(dirty_url).replace(".","[.]")))       
-                if direction == 'Incoming connection from':
-                    print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                        time,
-                        guid,
-                        computer_guids[guid]['hostname'],
-                        'NFM URL',
-                        local_ip,
-                        local_port,
-                        remote_ip,
-                        remote_port,
-                        'inbound',
-                        str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
-                        str(dirty_url).replace(".","[.]")))
+            # if event_type == 'NFM' and 'dirty_url' in str(event):
+            #     network_info = event['network_info']
+            #     dirty_url= event['network_info']['dirty_url']
+            #     protocol = network_info['nfm']['protocol']
+            #     local_ip = network_info['local_ip']
+            #     local_port = network_info['local_port']
+            #     remote_ip = network_info['remote_ip']
+            #     remote_port = network_info['remote_port']
+            #     direction = network_info['nfm']['direction']
+            #     if direction == 'Outgoing connection from':
+            #         print("{},{},{},{},{},{},{},{},{},{},{}".format(
+            #             time,
+            #             guid,
+            #             computer_guids[guid]['hostname'],
+            #             'NFM URL',
+            #             local_ip,
+            #             local_port,
+            #             remote_ip,
+            #             remote_port,
+            #             'outbound',
+            #             str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
+            #             str(dirty_url).replace(".","[.]")))       
+            #     if direction == 'Incoming connection from':
+            #         print("{},{},{},{},{},{},{},{},{},{},{}".format(
+            #             time,
+            #             guid,
+            #             computer_guids[guid]['hostname'],
+            #             'NFM URL',
+            #             local_ip,
+            #             local_port,
+            #             remote_ip,
+            #             remote_port,
+            #             'inbound',
+            #             str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
+            #             str(dirty_url).replace(".","[.]")))
     except:
         pass
 
