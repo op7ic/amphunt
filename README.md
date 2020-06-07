@@ -165,8 +165,6 @@ date,guid,hostname,type,severity,file_name,file_sha256,product_name,oldest_CVE,o
 <date>,<guid>,<hostname>,<type>,<severity>,<file_name>,<file_sha256>,<product_name>,<oldest_CVE>,<oldest_version_impacted>,<oldest_cvss_score>,average_cvss,all_CVE,oldest_reference_url
 ```
 
-
-
 ## getSpecificEvent.py
 
 This file extracts specific events from AMP API, identified by Event ID, and exports them to CSV file. Please edit [config.txt](config.txt) and add appropriate API keys.
