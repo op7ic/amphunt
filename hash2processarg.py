@@ -3,10 +3,19 @@ import sys
 import requests
 import configparser
 import time
+import multiprocessing
+from concurrent.futures import ThreadPoolExecutor
+import threading
+
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+# Create threadpool instance with 4 workers
+executor = ThreadPoolExecutor(max_workers=4)
+# Containers for GUIDs
+computer_guids = {}
 
 def format_arguments(_arguments):
     """ If arguments are in a list join them as a single string"""
@@ -20,6 +29,42 @@ def extractGUID(data):
         connector_guid = entry['connector_guid']
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
+
+def hash2processargs(thObject):
+    # Print the hostname and GUID that is about to be queried
+    guid=thObject[0]
+    payload = {'q': thObject[1]}
+    #print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
+    trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+    trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+    headers=trajectory_response.headers
+    # Ensure we don't cross API limits, sleep if we are approaching close to limits
+    if int(headers['X-RateLimit-Remaining']) < 10:
+        timeout=int(headers['X-RateLimit-Reset'])
+        time.sleep(int(timeout)+5)
+    # Decode JSON response
+    trajectory_response_json = trajectory_response.json()
+    # Name events section of JSON
+    # try:
+    events = trajectory_response_json['data']['events']
+    # Parse trajectory events to find the network events
+    for event in events:
+        date=event['date']
+        event_type = event['event_type']
+        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
+            arguments = event['command_line']['arguments']
+            file_sha256 = event['file']['identity']['sha256']
+            parent_sha256 = event['file']['parent']['identity']['sha256']
+            file_name = event['file']['file_name']
+            print('\t\t [+] {} : {} Process name: {} ChildSHA256: {} Args: {}'.format(date,computer_guids[guid]['hostname'], file_name,file_sha256,format_arguments(arguments)))
+        # Disabled by default
+        # if 'file_name' in str(event) and 'command_line' not in str(event):
+        #     print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
+        #     print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
+        #     print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+    # except:
+    #     pass
+
     
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -38,7 +83,7 @@ sha256hashfile = sys.argv[2]
 try:
     fp = open(sha256hashfile,'r')
     for sha256hash in fp.readlines():
-        print("\n[+] Hunting for hash: {}".format(sha256hash))
+        #print("\n[+] Hunting for hash: {}".format(sha256hash))
 		# Containers for output
         computer_guids = {}
         parent_to = {}
@@ -80,42 +125,12 @@ try:
                 # Extract
                 response_json = response.json()
                 extractGUID(response_json['data'])
-            print('\t[+] Computers found: {}'.format(len(computer_guids)))
+        #print('\t[+] Computers found: {}'.format(len(computer_guids)))
 
         # Query trajectory for each GUID
         for guid in computer_guids:
-            # Print the hostname and GUID that is about to be queried
-            print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
-            trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-            trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-            headers=trajectory_response.headers
-            # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            if int(headers['X-RateLimit-Remaining']) < 10:
-                timeout=int(headers['X-RateLimit-Reset'])
-                time.sleep(timeout+5)
-            # Decode JSON response
-            trajectory_response_json = trajectory_response.json()
-            # Name events section of JSON
-            try:
-                events = trajectory_response_json['data']['events']
-                # Parse trajectory events to find the network events
-                for event in events:
-                    time=event['date']
-                    event_type = event['event_type']
-                    if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
-                        arguments = event['command_line']['arguments']
-                        file_sha256 = event['file']['identity']['sha256']
-                        parent_sha256 = event['file']['parent']['identity']['sha256']
-                        file_name = event['file']['file_name']
-                        print('\t\t [+] Child SHA256: {}'.format(file_sha256))
-                        print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
-                    # Disabled by default
-                    # if 'file_name' in str(event) and 'command_line' not in str(event):
-                    #     print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                    #     print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
-                    #     print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
-            except:
-                pass
+            executor.submit(hash2processargs,(guid,sha256hash.strip()))
+
 finally:
     fp.close()
 
