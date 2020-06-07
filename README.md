@@ -150,6 +150,22 @@ notepad64
 ransom
 ```
 
+## all_vulnerabilities2csv.py
+
+This script dumps all vulnerabilities observed across all connectors and prints it in CSV format. It will print out information about oldest CVE/CVSS as well as averaged CVSS score, along with other information.
+
+How to invoke:
+```
+python3 all_vulnerabilities2csv.py <config file.txt> > output.csv
+```
+
+Sample output:
+```
+date,guid,hostname,type,severity,file_name,file_sha256,product_name,oldest_CVE,oldest_version_impacted,oldest_cvss_score,average_cvss,all_CVE,oldest_reference_url
+<date>,<guid>,<hostname>,<type>,<severity>,<file_name>,<file_sha256>,<product_name>,<oldest_CVE>,<oldest_version_impacted>,<oldest_cvss_score>,average_cvss,all_CVE,oldest_reference_url
+```
+
+
 
 ## getSpecificEvent.py
 
