@@ -78,6 +78,11 @@ try:
             trajectory_response = session.get(trajectory_url, params=payload, verify=False)
             # Decode JSON response
             trajectory_response_json = trajectory_response.json()
+            headers=trajectory_response.headers
+            # Ensure we don't cross API limits, sleep if we are approaching close to limits
+            if int(headers['X-RateLimit-Remaining']) < 10:
+                timeout=int(headers['X-RateLimit-Reset'])
+                time.sleep(timeout+5)
 			# Print the hostname and GUID that is about to be queried
             try:
                 events = trajectory_response_json['data']['events']

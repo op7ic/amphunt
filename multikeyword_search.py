@@ -93,6 +93,12 @@ try:
             print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
             trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
             trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+            headers=trajectory_response.headers
+            # Ensure we don't cross API limits, sleep if we are approaching close to limits
+            if int(headers['X-RateLimit-Remaining']) < 10:
+                timeout=int(headers['X-RateLimit-Reset'])
+                time.sleep(timeout+5)
+
             # Decode JSON response
             trajectory_response_json = trajectory_response.json()
             # Name events section of JSON

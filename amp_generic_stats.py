@@ -58,7 +58,7 @@ try:
     if('next' in response_json['metadata']['links']):
         while 'next' in response_json['metadata']['links']:
             next_url = response_json['metadata']['links']['next']
-            response = session.get(next_url)
+            response = session.get(next_url, verify=False)
             headers=response.headers
             # Ensure we don't cross API limits, sleep if we are approaching close to limits
             if int(headers['X-RateLimit-Remaining']) < 10:

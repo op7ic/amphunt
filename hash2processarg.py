@@ -89,29 +89,34 @@ try:
             print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
             trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
             trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+            headers=trajectory_response.headers
+            # Ensure we don't cross API limits, sleep if we are approaching close to limits
+            if int(headers['X-RateLimit-Remaining']) < 10:
+                timeout=int(headers['X-RateLimit-Reset'])
+                time.sleep(timeout+5)
             # Decode JSON response
             trajectory_response_json = trajectory_response.json()
             # Name events section of JSON
-            # try:
-            events = trajectory_response_json['data']['events']
-            # Parse trajectory events to find the network events
-            for event in events:
-                time=event['date']
-                event_type = event['event_type']
-                if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
-                    arguments = event['command_line']['arguments']
-                    file_sha256 = event['file']['identity']['sha256']
-                    parent_sha256 = event['file']['parent']['identity']['sha256']
-                    file_name = event['file']['file_name']
-                    print('\t\t [+] Child SHA256: {}'.format(file_sha256))
-                    print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
-                # Disabled by default
-                # if 'file_name' in str(event) and 'command_line' not in str(event):
-                #     print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                #     print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
-                #     print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
-            # except:
-            #     pass
+            try:
+                events = trajectory_response_json['data']['events']
+                # Parse trajectory events to find the network events
+                for event in events:
+                    time=event['date']
+                    event_type = event['event_type']
+                    if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
+                        arguments = event['command_line']['arguments']
+                        file_sha256 = event['file']['identity']['sha256']
+                        parent_sha256 = event['file']['parent']['identity']['sha256']
+                        file_name = event['file']['file_name']
+                        print('\t\t [+] Child SHA256: {}'.format(file_sha256))
+                        print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                    # Disabled by default
+                    # if 'file_name' in str(event) and 'command_line' not in str(event):
+                    #     print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
+                    #     print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
+                    #     print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+            except:
+                pass
 finally:
     fp.close()
 
