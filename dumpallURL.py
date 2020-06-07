@@ -5,11 +5,19 @@ import configparser
 import time
 import gc
 from urllib.parse import urlparse
-
+import multiprocessing
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+# Containers for GUIDs
+computer_guids = {}
+# Create threadpool instance with 4 workers
+executor = ThreadPoolExecutor(max_workers=4)
+
 
 def extractDomainFromURL(url):
     """ Extract domain name from URL"""
@@ -22,6 +30,41 @@ def extractGUID(data):
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
 
+def dumpURLs(guid):
+    """ Function to perform lookup on specific event type"""
+    # Extract trajectory of computers based on their guid
+    #print('\n\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
+    trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+    trajectory_response = session.get(trajectory_url, verify=False)
+    trajectory_response_json = trajectory_response.json()
+    headers=trajectory_response.headers
+    # Ensure we don't cross API limits, sleep if we are approaching close to limits
+    if int(headers['X-RateLimit-Remaining']) < 10:
+        timeout=int(headers['X-RateLimit-Reset'])
+        time.sleep(timeout+5)
+    try:
+        events = trajectory_response_json['data']['events']
+        for event in events:
+            event_type = event['event_type']
+            time = event['date']
+            if event_type == 'NFM' and 'dirty_url' in str(event):
+                network_info = event['network_info']
+                dirty_url= event['network_info']['dirty_url']
+                protocol = network_info['nfm']['protocol']
+                local_ip = network_info['local_ip']
+                local_port = network_info['local_port']
+                remote_ip = network_info['remote_ip']
+                remote_port = network_info['remote_port']
+                direction = network_info['nfm']['direction']
+                if direction == 'Outgoing connection from':
+                    print("\t\t [+] Outbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
+                    print('\t\t\t {} -> {} Host: {} URL: {} DOMAIN: {}'.format(time,'outbound',computer_guids[guid]['hostname'], str(dirty_url).replace(".","[.]"),str(extractDomainFromURL(dirty_url)).replace(".","[.]")))
+                if direction == 'Incoming connection from': # pretty sure this should never trigger
+                    print("\t\t [+] Inbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
+                    print('\t\t\t {} <- {} Host: {} URL: {} DOMAIN: {}'.format(time,'inbound',computer_guids[guid]['hostname'], str(dirty_url).replace(".","[.]"),str(extractDomainFromURL(dirty_url)).replace(".","[.]")))
+    except:
+        pass
+
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
     sys.exit('Usage: <config file.txt>\n %s' % sys.argv[0])
@@ -33,8 +76,6 @@ client_id = config['settings']['client_id']
 api_key = config['settings']['api_key']
 domainIP = config['settings']['domainIP']
 
-# Store the command line parameter
-computer_guids = {}
 
 try:
 
@@ -72,38 +113,8 @@ try:
 
     print('[+] Total computers found: {}'.format(len(computer_guids)))
     for guid in computer_guids:
-        print('\n\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
-        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-        trajectory_response = session.get(trajectory_url, verify=False)
-        trajectory_response_json = trajectory_response.json()
-        headers=trajectory_response.headers
-        # Ensure we don't cross API limits, sleep if we are approaching close to limits
-        if int(headers['X-RateLimit-Remaining']) < 10:
-            timeout=int(headers['X-RateLimit-Reset'])
-            time.sleep(timeout+5)
-        try:
-            events = trajectory_response_json['data']['events']
-            for event in events:
-                event_type = event['event_type']
-                time = event['date']
-                if event_type == 'NFM' and 'dirty_url' in str(event):
-                    network_info = event['network_info']
-                    dirty_url= event['network_info']['dirty_url']
-                    protocol = network_info['nfm']['protocol']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    direction = network_info['nfm']['direction']
-                    if direction == 'Outgoing connection from':
-                        print("\t\t [+] Outbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(time,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
-                    if direction == 'Incoming connection from':
-                        print("\t\t [+] Inbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(time,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
-        except:
-            pass
+        executor.submit(dumpURLs,guid)
+
 
 finally:
     gc.collect()
-    print("[+] Done")
