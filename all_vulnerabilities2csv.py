@@ -3,6 +3,10 @@ import requests
 import configparser
 import time
 import gc
+import multiprocessing
+import logging
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -10,7 +14,62 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # Containers for GUIDs
 computer_guids = {}
+# Create threadpool instance with 4 workers
+executor = ThreadPoolExecutor(max_workers=4)
 
+def vulSearch(guid):
+    """ Function to perform lookup on specific event type"""
+    # Extract trajectory of computers based on their guid
+    trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+    trajectory_response = session.get(trajectory_url, verify=False)
+    trajectory_response_json = trajectory_response.json()
+    headers=trajectory_response.headers
+    # Ensure we don't cross API limits, sleep if we are approaching close to limits
+    if int(headers['X-RateLimit-Remaining']) < 10:
+        timeout=int(headers['X-RateLimit-Reset'])
+        time.sleep(timeout+5)
+    try:
+        events = trajectory_response_json['data']['events']
+        for event in events:
+            event_type = event['event_type']
+            time = event['date'] 
+            # a list to store CVSS values
+            CVSS_list=list()
+            # a list to store all CVE numbers
+            allCVE=list()
+            #filter by specific event type  
+            if event_type == 'Vulnerable Application Detected':
+                severity=event['severity']
+                outdateFile=event['file']['file_name']
+                sha256outdateFile=event['file']['identity']['sha256']
+                # this can be an array so instead of printing it all, we simply take the first vulnerability
+                oldestVulnerability=event['vulnerabilities'][0]
+                # loop over all CVSS scores and take average
+                for j in (event['vulnerabilities']):
+                    CVSS_list.append(float(j['score']))
+                    allCVE.append(j['cve'])
+                # get rounded CVSS value    
+                roundedCVSS=round(sum(CVSS_list)/len(CVSS_list))
+                glob_cve=("|".join(allCVE))
+                # final printout of all vulnerabilities
+                print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
+                    time,
+                    guid,
+                    computer_guids[guid]['hostname'],
+                    'Vulnerable Application',
+                    severity,
+                    outdateFile,
+                    sha256outdateFile,
+                    oldestVulnerability['name'],
+                    oldestVulnerability['cve'],
+                    oldestVulnerability['version'],
+                    oldestVulnerability['score'],
+                    roundedCVSS,
+                    glob_cve,
+                    oldestVulnerability['url']))
+    except:
+        pass
+        
 def extractGUID(data):
     """ Extract GUIDs from data structure and store them in computer_guids variable"""
     for entry in data:
@@ -66,55 +125,9 @@ try:
             # Extract
             response_json = response.json()
             extractGUID(response_json['data'])
-            
+    # add tasks to executor, invoke 4 workers at the time to increase speed
     for guid in computer_guids:
-        # Extract trajectory of computers based on their guid
-        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-        trajectory_response = session.get(trajectory_url, verify=False)
-        trajectory_response_json = trajectory_response.json()
-        headers=trajectory_response.headers
-        # Ensure we don't cross API limits, sleep if we are approaching close to limits
-        if int(headers['X-RateLimit-Remaining']) < 10:
-            timeout=int(headers['X-RateLimit-Reset'])
-            time.sleep(timeout+5)
-        try:
-            events = trajectory_response_json['data']['events']
-            for event in events:
-                event_type = event['event_type']
-                time = event['date'] 
-                CVSS_list=list()
-                allCVE=list()
-                #filter by specific event type  
-                if event_type == 'Vulnerable Application Detected':
-                    severity=event['severity']
-                    outdateFile=event['file']['file_name']
-                    sha256outdateFile=event['file']['identity']['sha256']
-                    # this can be an array so instead of printing it all, we simply take the first vulnerability
-                    oldestVulnerability=event['vulnerabilities'][0]
-                    # loop over all CVSS scores and take average
-                    for j in (event['vulnerabilities']):
-                        CVSS_list.append(float(j['score']))
-                        allCVE.append(j['cve'])
-                    # get rounded CVSS value    
-                    roundedCVSS=round(sum(CVSS_list)/len(CVSS_list))
-                    glob_cve=("|".join(allCVE))
-                    # final printout of all vulnerabilities
-                    print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
-                        time,
-                        guid,
-                        computer_guids[guid]['hostname'],
-                        'Vulnerable Application',
-                        severity,
-                        outdateFile,
-                        sha256outdateFile,
-                        oldestVulnerability['name'],
-                        oldestVulnerability['cve'],
-                        oldestVulnerability['version'],
-                        oldestVulnerability['score'],
-                        roundedCVSS,
-                        glob_cve,
-                        oldestVulnerability['url']))
-        except:
-            pass
+        executor.submit(vulSearch,guid)
+    
 finally:
     gc.collect()
