@@ -3,12 +3,10 @@ import requests
 import configparser
 import time
 import gc
-from urllib.parse import urlparse
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
 
 # Containers for GUIDs
 computer_guids = {}
@@ -20,9 +18,6 @@ def extractGUID(data):
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
 
-def extractDomainFromURL(url):
-    """ Extract domain name from URL"""
-    return urlparse(url).netloc
 
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -34,9 +29,6 @@ config.read(sys.argv[1])
 client_id = config['settings']['client_id']
 api_key = config['settings']['api_key']
 domainIP = config['settings']['domainIP']
-
-# Store the command line parameter
-remote_ips = {}
 
 #Print header for CSV 
 print('date,guid,hostname,type,severity,file_name,file_sha256,product_name,oldest_CVE,oldest_version_impacted,oldest_cvss_score,average_cvss,all_CVE,oldest_reference_url') 
