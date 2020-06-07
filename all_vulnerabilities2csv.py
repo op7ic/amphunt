@@ -26,8 +26,7 @@ def vulSearch(guid):
     headers=trajectory_response.headers
     # Ensure we don't cross API limits, sleep if we are approaching close to limits
     if int(headers['X-RateLimit-Remaining']) < 10:
-        timeout=int(headers['X-RateLimit-Reset'])
-        time.sleep(timeout+5)
+        time.sleep(int(headers['X-RateLimit-Reset'])+5)
     try:
         events = trajectory_response_json['data']['events']
         for event in events:
