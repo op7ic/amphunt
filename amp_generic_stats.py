@@ -1,15 +1,13 @@
-# This script is based on https://github.com/CiscoSecurity/amp-04-sha256-to-network-connections/blob/master/sha256_to_network_connections.py
 import sys
 import requests
 import configparser
 import time
 import gc
-from urllib.parse import urlparse
+from multiprocessing.pool import ThreadPool
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
 
 # Containers for GUIDs
 computer_guids = {}
@@ -21,9 +19,6 @@ def extractGUID(data):
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
 
-def extractDomainFromURL(url):
-    """ Extract domain name from URL"""
-    return urlparse(url).netloc
 
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -36,11 +31,8 @@ client_id = config['settings']['client_id']
 api_key = config['settings']['api_key']
 domainIP = config['settings']['domainIP']
 
-# Store the command line parameter
-remote_ips = {}
-
 #Print header for CSV 
-print('date,guid,hostname,type,source_ip,source_port,destination_ip,destination_port,direction,domain,URL')
+print('date,guid,hostname,Vulnerable Application Detected,NFM,File Executed,File Created,File Moved,Threat Quarantined,Threat Detected,Quarantine Failure,Malicious Activity Detection,Execution Blocked,Executed malware') 
 
 try:
     # Creat session object
@@ -77,51 +69,65 @@ try:
             extractGUID(response_json['data'])
             
     for guid in computer_guids:
+        # Extract trajectory of computers based on their guid
         trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
         trajectory_response = session.get(trajectory_url, verify=False)
         trajectory_response_json = trajectory_response.json()
+        # define variables which will be applicable per each GUID
+        vulnerable=0
+        nfm=0
+        executed=0
+        create=0
+        moved=0
+        threat_q=0
+        threat_d=0
+        quarantine_fail=0
+        malicious_activity=0
+        exec_blocked=0
+        exec_malware=0
+        # try:
+        events = trajectory_response_json['data']['events']
+        for event in events:
+            event_type = event['event_type']
+            time = event['date'] 
 
-        try:
-            events = trajectory_response_json['data']['events']
-            for event in events:
-                event_type = event['event_type']
-                time = event['date']             
-                if event_type == 'NFM' and 'dirty_url' in str(event):
-                    network_info = event['network_info']
-                    dirty_url= event['network_info']['dirty_url']
-                    protocol = network_info['nfm']['protocol']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    direction = network_info['nfm']['direction']
-                    if direction == 'Outgoing connection from':
-                        print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                            time,
-                            guid,
-                            computer_guids[guid]['hostname'],
-                            'NFM URL',
-                            local_ip,
-                            local_port,
-                            remote_ip,
-                            remote_port,
-                            'outbound',
-                            str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
-                            str(dirty_url).replace(".","[.]")))       
-                    if direction == 'Incoming connection from':
-                        print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                            time,
-                            guid,
-                            computer_guids[guid]['hostname'],
-                            'NFM URL',
-                            local_ip,
-                            local_port,
-                            remote_ip,
-                            remote_port,
-                            'inbound',
-                            str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
-                            str(dirty_url).replace(".","[.]")))
-        except:
-            pass
+            #filter by specific event type  
+            if event_type == 'Vulnerable Application Detected':
+                vulnerable+=1
+            if event_type == 'NFM':
+                nfm+=1
+            if event_type == 'Executed by':
+                executed+=1
+            if event_type == 'Created by':
+                create+=1
+            if event_type == 'Moved by':
+                moved+=1
+            if event_type == 'Threat Quarantined':
+                threat_q+=1
+            if event_type == 'Threat Detected':
+                threat_d+=1
+            if event_type == 'Quarantine Failure':
+                quarantine_fail+=1
+            if event_type == 'Malicious Activity Detection':
+                malicious_activity+=1
+            if event_type == 'Execution Blocked':
+                exec_blocked+=1
+            if event_type == 'Executed Malware':
+                exec_malware+=1
+        print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
+            date,
+            guid,
+            computer_guids[guid]['hostname'],
+            vulnerable,
+            nfm,
+            executed,
+            create,
+            moved,
+            threat_q,
+            threat_d,
+            quarantine_fail,
+            malicious_activity,
+            exec_blocked,
+            exec_malware))
 finally:
     gc.collect()

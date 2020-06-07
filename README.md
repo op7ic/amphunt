@@ -165,6 +165,14 @@ date,guid,hostname,type,severity,file_name,file_sha256,product_name,oldest_CVE,o
 <date>,<guid>,<hostname>,<type>,<severity>,<file_name>,<file_sha256>,<product_name>,<oldest_CVE>,<oldest_version_impacted>,<oldest_cvss_score>,average_cvss,all_CVE,oldest_reference_url
 ```
 
+## amp_generic_stats.py
+
+This script will create a csv file with statistic gathered against each of the hosts in the AMP installation so they can be searched for [anomalies](https://vpotapov.wordpress.com/2017/03/20/event-aggregation/). It targets, specific parameters such as:
+
+- Number of created/moved/executed files
+- Number of network connections
+- Number of specific AMP alerts such as 'Threat Quarantined' or 'Malware Executed'
+
 ## getSpecificEvent.py
 
 This file extracts specific events from AMP API, identified by Event ID, and exports them to CSV file. Please edit [config.txt](config.txt) and add appropriate API keys.
