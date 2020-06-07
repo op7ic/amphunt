@@ -73,6 +73,11 @@ try:
         trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
         trajectory_response = session.get(trajectory_url, verify=False)
         trajectory_response_json = trajectory_response.json()
+        headers=trajectory_response
+        # Ensure we don't cross API limits, sleep if we are approaching close to limits
+        if int(headers['X-RateLimit-Remaining']) < 10:
+            timeout=int(headers['X-RateLimit-Reset'])
+            time.sleep(timeout+5)
         # define variables which will be applicable per each GUID
         vulnerable=0
         nfm=0
@@ -115,7 +120,7 @@ try:
             if event_type == 'Executed Malware':
                 exec_malware+=1
         print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
-            date,
+            time,
             guid,
             computer_guids[guid]['hostname'],
             vulnerable,
