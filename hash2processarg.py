@@ -45,25 +45,25 @@ def hash2processargs(thObject):
     # Decode JSON response
     trajectory_response_json = trajectory_response.json()
     # Name events section of JSON
-    # try:
-    events = trajectory_response_json['data']['events']
-    # Parse trajectory events to find the network events
-    for event in events:
-        date=event['date']
-        event_type = event['event_type']
-        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
-            arguments = event['command_line']['arguments']
-            file_sha256 = event['file']['identity']['sha256']
-            parent_sha256 = event['file']['parent']['identity']['sha256']
-            file_name = event['file']['file_name']
-            print('\t\t [+] {} : {} Process name: {} ChildSHA256: {} Args: {}'.format(date,computer_guids[guid]['hostname'], file_name,file_sha256,format_arguments(arguments)))
-        # Disabled by default
-        # if 'file_name' in str(event) and 'command_line' not in str(event):
-        #     print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-        #     print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
-        #     print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
-    # except:
-    #     pass
+    try:
+        events = trajectory_response_json['data']['events']
+        # Parse trajectory events to find the network events
+        for event in events:
+            date=event['date']
+            event_type = event['event_type']
+            if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
+                arguments = event['command_line']['arguments']
+                file_sha256 = event['file']['identity']['sha256']
+                parent_sha256 = event['file']['parent']['identity']['sha256']
+                file_name = event['file']['file_name']
+                print('\t\t [+] {} : {} Process name: {} ChildSHA256: {} Args: {}'.format(date,computer_guids[guid]['hostname'], file_name,file_sha256,format_arguments(arguments)))
+            # Disabled by default
+            # if 'file_name' in str(event) and 'command_line' not in str(event):
+            #     print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
+            #     print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
+            #     print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+    except:
+        print("bad")
 
     
 # Validate a command line parameter was provided
@@ -84,10 +84,6 @@ try:
     fp = open(sha256hashfile,'r')
     for sha256hash in fp.readlines():
         #print("\n[+] Hunting for hash: {}".format(sha256hash))
-		# Containers for output
-        computer_guids = {}
-        parent_to = {}
-        direct_commands = {'process_names':set(), 'commands':set()}
 
 		# Creat session object
 		# http://docs.python-requests.org/en/master/user/advanced/
@@ -130,6 +126,7 @@ try:
         # Query trajectory for each GUID
         for guid in computer_guids:
             executor.submit(hash2processargs,(guid,sha256hash.strip()))
+
 
 finally:
     fp.close()
