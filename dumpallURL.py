@@ -90,10 +90,6 @@ try:
                     remote_ip = network_info['remote_ip']
                     remote_port = network_info['remote_port']
                     direction = network_info['nfm']['direction']
-                    if remote_ip not in remote_ips:
-                        remote_ips[remote_ip] = {'ports':[]}
-                    if remote_port not in remote_ips[remote_ip]['ports']:
-                        remote_ips[remote_ip]['ports'].append(remote_port)
                     if direction == 'Outgoing connection from':
                         print("\t\t [+] Outbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
                         print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(time,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
