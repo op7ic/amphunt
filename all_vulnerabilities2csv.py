@@ -24,9 +24,6 @@ def vulSearch(guid):
     trajectory_response = session.get(trajectory_url, verify=False)
     trajectory_response_json = trajectory_response.json()
     headers=trajectory_response.headers
-    # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    if int(headers['X-RateLimit-Remaining']) < 10:
-        time.sleep(int(headers['X-RateLimit-Reset'])+5)
     try:
         events = trajectory_response_json['data']['events']
         for event in events:
@@ -68,6 +65,7 @@ def vulSearch(guid):
                     oldestVulnerability['url']))
     except:
         pass
+    return headers
         
 def extractGUID(data):
     """ Extract GUIDs from data structure and store them in computer_guids variable"""
@@ -75,7 +73,6 @@ def extractGUID(data):
         connector_guid = entry['connector_guid']
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
-
 
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -104,8 +101,19 @@ try:
     # Get Headers
     headers=response.headers
     # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    if int(headers['X-RateLimit-Remaining']) < 10:
-        time.sleep(int(headers['X-RateLimit-Reset'])+5)
+    if int(headers['X-RateLimit-Remaining']) < 20:
+        # This is last one before it kicks in timeout
+        if(headers['Status'] == "200 OK"):
+            time.sleep((int(headers['X-RateLimit-Reset'])+5))
+            #re-auth 
+            session = requests.Session()
+            session.auth = (client_id, api_key)
+        if(headers['Status'] == "429 Too Many Requests"):
+            # Triggered too many request, we need to sleep before it continues
+            time.sleep((int(headers['X-RateLimit-Reset'])+5))
+            #re-auth but sleep before that
+            session = requests.Session()
+            session.auth = (client_id, api_key)
     # Decode JSON response
     response_json = response.json()
     #Page 1 extract all GUIDs
@@ -118,15 +126,28 @@ try:
             response = session.get(next_url, verify=False)
             headers=response.headers
             # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            if int(headers['X-RateLimit-Remaining']) < 10:
-                timeout=int(headers['X-RateLimit-Reset'])
-                time.sleep(timeout+5)
+            if int(headers['X-RateLimit-Remaining']) < 20:
+                # This is last one before it kicks in timeout
+                if(headers['Status'] == "200 OK"):
+                    time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                if(headers['Status'] == "429 Too Many Requests"):
+                    # Triggered too many request, we need to sleep before it continues
+                    time.sleep((int(headers['X-RateLimit-Reset'])+5))
             # Extract
             response_json = response.json()
             extractGUID(response_json['data'])
     # add tasks to executor, invoke 4 workers at the time to increase speed
     for guid in computer_guids:
-        executor.submit(vulSearch,guid)
+        future=executor.submit(vulSearch,guid)
+        thread_array=future.result()
+        if(int(thread_array['X-RateLimit-Remaining']) < 20):
+            if(thread_array['Status'] == "200 OK"):
+                # We are close to the border, in theory 429 error code should never trigger
+                time.sleep((int(thread_array['X-RateLimit-Reset'])+5))
+            if(thread_array['Status'] == "429 Too Many Requests"):
+                # Triggered too many request, we need to sleep before it continues
+                time.sleep((int(thread_array['X-RateLimit-Reset'])+5))
+
     
 finally:
     gc.collect()
