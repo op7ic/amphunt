@@ -74,14 +74,17 @@ def getStatsOut(guid):
         # In theory we should never reach point this because job scheduler below should take care of measuring API consumption
         # If we do reach this, we can have multiple threads sleeping at the same time since they all hit the same function. That's OK
         # We stop on 45 due to number of threads working
-        if(int(headers['X-RateLimit-Remaining']) < 45):
-            if(headers['Status'] == "200 OK"):
-                # We are close to the border, in theory 429 error code should never trigger if we capture this event
-                time.sleep((int(headers['X-RateLimit-Reset'])+5))
-            if(headers['Status'] == "429 Too Many Requests"):
-                print("entered_sleep")
-                # Triggered too many request, we need to sleep before it continues
-                time.sleep((int(headers['X-RateLimit-Reset'])+5))
+        if 'X-RateLimit-Reset' and 'X-RateLimit-Remaining' in str(headers):
+            if(int(headers['X-RateLimit-Remaining']) < 45):
+                if(headers['Status'] == "200 OK"):
+                    # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                    time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                if(headers['Status'] == "429 Too Many Requests"):
+                    # Triggered too many request, we need to sleep before it continues
+                    time.sleep((int(headers['X-RateLimit-Reset'])+5))
+        else:
+            # headers are corrupted, so sleep now (could be connection problem)
+            time.sleep(20)
     except KeyError:
         # sometimes AMP server returns misformatted header
         pass
@@ -147,7 +150,10 @@ def getStatsOut(guid):
             exec_malware))
     except:
         pass
-    return headers
+    if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
+        return headers
+    else:
+        return "0"
 
 
 #Print header for CSV 
