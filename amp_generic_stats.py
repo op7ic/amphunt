@@ -1,10 +1,10 @@
+from concurrent.futures import ThreadPoolExecutor
+from threading import BoundedSemaphore
+import time
 import sys
 import requests
 import configparser
-import time
 import gc
-import multiprocessing
-from concurrent.futures import ThreadPoolExecutor
 import threading
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
@@ -13,8 +13,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # Containers for GUIDs
 computer_guids = {}
-# Create threadpool instance with 4 workers
-executor = ThreadPoolExecutor(max_workers=4)
+
 
 def extractGUID(data):
     """ Extract GUIDs from data structure and store them in computer_guids variable"""
@@ -23,17 +22,66 @@ def extractGUID(data):
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
 
+# Validate a command line parameter was provided
+if len(sys.argv) < 2:
+    sys.exit('Usage: <config file.txt>\n %s' % sys.argv[0])
+
+# Parse config to extract API keys
+config = configparser.ConfigParser()
+config.read(sys.argv[1])
+client_id = config['settings']['client_id']
+api_key = config['settings']['api_key']
+domainIP = config['settings']['domainIP']
+
+class BoundedExecutor:
+    """BoundedExecutor behaves as a ThreadPoolExecutor which will block on
+    calls to submit() once the limit given as "bound" work items are queued for
+    execution.
+    :param bound: Integer - the maximum number of items in the work queue
+    :param max_workers: Integer - the size of the thread pool
+    https://www.bettercodebytes.com/theadpoolexecutor-with-a-bounded-queue-in-python/
+    """
+    def __init__(self, bound, max_workers):
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        self.semaphore = BoundedSemaphore(bound + max_workers)
+
+    """See concurrent.futures.Executor#submit"""
+    def submit(self, fn, *args, **kwargs):
+        self.semaphore.acquire()
+        try:
+            future = self.executor.submit(fn, *args, **kwargs)
+        except:
+            self.semaphore.release()
+            raise
+        else:
+            future.add_done_callback(lambda x: self.semaphore.release())
+            return future
+
+    """See concurrent.futures.Executor#shutdown"""
+    def shutdown(self, wait=True):
+        self.executor.shutdown(wait)
+
 def getStatsOut(guid):
     """ Function to perform lookup on specific event type"""
     # Extract trajectory of computers based on their guid
     trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-    trajectory_response = session.get(trajectory_url, verify=False)
-    trajectory_response_json = trajectory_response.json()
+    # Wait 90 seconds to return results therefore becoming a blocking
+    # That said, no request should need 90 turnaround unless you query via satelite link
+    trajectory_response = session.get(trajectory_url, verify=False,timeout=90)
+    # Extract headers (these are also returned)
     headers=trajectory_response.headers
-    # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    if int(headers['X-RateLimit-Remaining']) < 10:
-        timeout=int(headers['X-RateLimit-Reset'])
-        time.sleep(int(timeout)+5)
+    # In theory we should never have to reach this because job scheduler below
+    # If we do reach this, we can have multiple threads sleeping at the same time since they all hit the same function
+    # We stop on 45 due to number of threads working
+    if(int(headers['X-RateLimit-Remaining']) < 45):
+        if(headers['Status'] == "200 OK"):
+            # We are close to the border, in theory 429 error code should never trigger if we capture this event
+            time.sleep((int(headers['X-RateLimit-Reset'])+5))
+        if(headers['Status'] == "429 Too Many Requests"):
+            print("entered_sleep")
+            # Triggered too many request, we need to sleep before it continues
+            time.sleep((int(headers['X-RateLimit-Reset'])+5))
+
     # define variables which will be applicable per each GUID
     vulnerable=0
     nfm=0
@@ -46,7 +94,10 @@ def getStatsOut(guid):
     malicious_activity=0
     exec_blocked=0
     exec_malware=0
+    # Attempt to get parse JSON response. 
+    # Igonore errors since it would mean they simply don't fit in defintion below
     try:
+        trajectory_response_json = trajectory_response.json()
         events = trajectory_response_json['data']['events']
         for event in events:
             event_type = event['event_type']
@@ -92,22 +143,11 @@ def getStatsOut(guid):
             exec_malware))
     except:
         pass
+    return headers
 
-
-# Validate a command line parameter was provided
-if len(sys.argv) < 2:
-    sys.exit('Usage: <config file.txt>\n %s' % sys.argv[0])
-
-# Parse config to extract API keys
-config = configparser.ConfigParser()
-config.read(sys.argv[1])
-client_id = config['settings']['client_id']
-api_key = config['settings']['api_key']
-domainIP = config['settings']['domainIP']
 
 #Print header for CSV 
 print('date,guid,hostname,Vulnerable Application Detected,NFM,File Executed,File Created,File Moved,Threat Quarantined,Threat Detected,Quarantine Failure,Malicious Activity Detection,Execution Blocked,Executed malware') 
-
 try:
     # Creat session object
     # http://docs.python-requests.org/en/master/user/advanced/
@@ -141,9 +181,35 @@ try:
             # Extract
             response_json = response.json()
             extractGUID(response_json['data'])
-    # add tasks to thread pool
+    # Executor with limit on the queue by number of GUIDs
+    # Limit to 8 threads. Full size of queue is number of computer GUIDs + number of threads
+    executor = BoundedExecutor(8, len(computer_guids))
+    # Define counter so we can scan every n-th thread for API timeout
+    count = 0
     for guid in computer_guids:
-        executor.submit(getStatsOut,guid)
-        
+        # submit task in non-blocking mode
+        future = executor.submit(getStatsOut,guid)
+        count+=1
+        # check every 4th thread
+        if (count == 3):
+            # .result() function will block thread and wait. so we check only every 4th thread to see if we are still ok to proceed
+            headers=future.result()
+            if 'X-RateLimit-Remaining' in str(headers):
+                if(int(headers['X-RateLimit-Remaining']) < 45):
+                    if(headers['Status'] == "200 OK"):
+                        # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                    if(headers['Status'] == "429 Too Many Requests"):
+                        # Triggered too many request, we need to sleep before it continues
+                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
+            else:
+                # Header object is wrong. This is likley 429 response so sleep extra 10 before moving on to next GUID object
+                # In theory this shouldn't be reached unless threads somehow skip more than 45 requests
+                time.sleep(10)
+                continue
+            # reset counter back to 0
+            count=0
+
 finally:
+    # collect leftovers
     gc.collect()
