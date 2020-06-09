@@ -92,6 +92,7 @@ def getStatsOut(guid):
                     # We sleep - this could be connection problem, returned headers are messed up
                     Event().wait(20)
             else:
+                # headers are empty, return 0 so job worker will know what to do next
                 Event().wait(20)
                 return "0"
         else:
@@ -221,21 +222,25 @@ try:
             # .result() function will block thread and wait so we check only every 4th thread to see if we are still ok to proceed
             try:
                 headers=future.result()
-                if 'X-RateLimit-Remaining' in str(headers):
-                    if(int(headers['X-RateLimit-Remaining']) < 45):
-                        if(headers['Status'] == "200 OK"):
-                            # We are close to the border, in theory 429 error code should never trigger if we capture this event
-                            time.sleep((int(headers['X-RateLimit-Reset'])+5))
-                        if(headers['Status'] == "429 Too Many Requests"):
-                            # Triggered too many request, we need to sleep before it continues
-                            time.sleep((int(headers['X-RateLimit-Reset'])+5))
-                elif headers== "0":
-                    # Header object is wrong. This is likley 429 response so sleep extra 10 before moving on to next GUID object
-                    # In theory this shouldn't be reached unless threads somehow skip more than 45 requests or server responds back with junk
-                    time.sleep(10)
-                    continue
-                # reset counter back to 0
-                count=0
+                if headers != None:
+                    if 'X-RateLimit-Remaining' in str(headers):
+                        if(int(headers['X-RateLimit-Remaining']) < 45):
+                            if(headers['Status'] == "200 OK"):
+                                # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                                time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                            if(headers['Status'] == "429 Too Many Requests"):
+                                # Triggered too many request, we need to sleep before it continues
+                                time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                    elif headers== "0":
+                        # Header object is wrong. This is likley 429 response so sleep extra 10 before moving on to next GUID object
+                        # In theory this shouldn't be reached unless threads somehow skip more than 45 requests or server responds back with junk
+                        time.sleep(10)
+                        continue
+                    # reset counter back to 0
+                    count=0
+                else:
+                    # Headers didn't return correct or wait is messed up. Pass this and carry on
+                    pass
             except KeyError:
                 # Handle keyerror that might arise from misformatted header.
                 pass
