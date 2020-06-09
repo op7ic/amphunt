@@ -70,8 +70,8 @@ def getStatsOut(guid):
     trajectory_response = session.get(trajectory_url, verify=False,timeout=90)
     # Extract headers (these are also returned)
     headers=trajectory_response.headers
-    # In theory we should never have to reach this because job scheduler below
-    # If we do reach this, we can have multiple threads sleeping at the same time since they all hit the same function
+    # In theory we should never reach point this because job scheduler below should take care of measuring API consumption
+    # If we do reach this, we can have multiple threads sleeping at the same time since they all hit the same function. That's OK
     # We stop on 45 due to number of threads working
     if(int(headers['X-RateLimit-Remaining']) < 45):
         if(headers['Status'] == "200 OK"):
