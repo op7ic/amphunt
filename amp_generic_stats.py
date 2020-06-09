@@ -64,23 +64,27 @@ class BoundedExecutor:
 def getStatsOut(guid):
     """ Function to perform lookup on specific event type"""
     # Extract trajectory of computers based on their guid
-    trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-    # Wait 90 seconds to return results therefore becoming a blocking
-    # That said, no request should need 90 turnaround unless you query via satelite link
-    trajectory_response = session.get(trajectory_url, verify=False,timeout=90)
-    # Extract headers (these are also returned)
-    headers=trajectory_response.headers
-    # In theory we should never reach point this because job scheduler below should take care of measuring API consumption
-    # If we do reach this, we can have multiple threads sleeping at the same time since they all hit the same function. That's OK
-    # We stop on 45 due to number of threads working
-    if(int(headers['X-RateLimit-Remaining']) < 45):
-        if(headers['Status'] == "200 OK"):
-            # We are close to the border, in theory 429 error code should never trigger if we capture this event
-            time.sleep((int(headers['X-RateLimit-Reset'])+5))
-        if(headers['Status'] == "429 Too Many Requests"):
-            print("entered_sleep")
-            # Triggered too many request, we need to sleep before it continues
-            time.sleep((int(headers['X-RateLimit-Reset'])+5))
+    try:
+        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+        # Wait 90 seconds to return results therefore becoming a blocking
+        # That said, no request should need 90 turnaround unless you query via satelite link
+        trajectory_response = session.get(trajectory_url, verify=False,timeout=90)
+        # Extract headers (these are also returned)
+        headers=trajectory_response.headers
+        # In theory we should never reach point this because job scheduler below should take care of measuring API consumption
+        # If we do reach this, we can have multiple threads sleeping at the same time since they all hit the same function. That's OK
+        # We stop on 45 due to number of threads working
+        if(int(headers['X-RateLimit-Remaining']) < 45):
+            if(headers['Status'] == "200 OK"):
+                # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                time.sleep((int(headers['X-RateLimit-Reset'])+5))
+            if(headers['Status'] == "429 Too Many Requests"):
+                print("entered_sleep")
+                # Triggered too many request, we need to sleep before it continues
+                time.sleep((int(headers['X-RateLimit-Reset'])+5))
+    except KeyError:
+        # sometimes AMP server returns misformatted header
+        pass
 
     # define variables which will be applicable per each GUID
     vulnerable=0
@@ -193,22 +197,26 @@ try:
         # check every 4th thread
         if (count == 3):
             # .result() function will block thread and wait. so we check only every 4th thread to see if we are still ok to proceed
-            headers=future.result()
-            if 'X-RateLimit-Remaining' in str(headers):
-                if(int(headers['X-RateLimit-Remaining']) < 45):
-                    if(headers['Status'] == "200 OK"):
-                        # We are close to the border, in theory 429 error code should never trigger if we capture this event
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-                    if(headers['Status'] == "429 Too Many Requests"):
-                        # Triggered too many request, we need to sleep before it continues
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-            else:
-                # Header object is wrong. This is likley 429 response so sleep extra 10 before moving on to next GUID object
-                # In theory this shouldn't be reached unless threads somehow skip more than 45 requests
-                time.sleep(10)
-                continue
-            # reset counter back to 0
-            count=0
+            try:
+                headers=future.result()
+                if 'X-RateLimit-Remaining' in str(headers):
+                    if(int(headers['X-RateLimit-Remaining']) < 45):
+                        if(headers['Status'] == "200 OK"):
+                            # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                            time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                        if(headers['Status'] == "429 Too Many Requests"):
+                            # Triggered too many request, we need to sleep before it continues
+                            time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                else:
+                    # Header object is wrong. This is likley 429 response so sleep extra 10 before moving on to next GUID object
+                    # In theory this shouldn't be reached unless threads somehow skip more than 45 requests
+                    time.sleep(10)
+                    continue
+                # reset counter back to 0
+                count=0
+            except KeyError:
+                # Handle keyerror that might arise from misformatted header.
+                pass
 
 finally:
     # collect leftovers
