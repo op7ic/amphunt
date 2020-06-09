@@ -122,7 +122,6 @@ def getStatsOut(guid):
                             # For some reason simply using time.sleep does not work very well here
                             Event().wait((int(headers['X-RateLimit-Reset'])+5))
                 else:
-                    print(headers)
                     # We sleep - this could be connection problem, returned headers don't contain any info that we need to set timer up
                     Event().wait(20)
                     # re-issue the same trajectory request, hope for headers to come back
@@ -133,7 +132,6 @@ def getStatsOut(guid):
                     else:
                         headers="0"
             else:
-                print(headers)
                 # headers are empty, return 0 so job worker will know what to do next
                 Event().wait(20)
                 # re-issue the same trajectory request, hope for headers to come back
@@ -143,7 +141,6 @@ def getStatsOut(guid):
                 else:
                     headers="0"
         else:
-            print(headers)
             # Trajectory is empty, return 0 so job worker will know what to do next
             Event().wait(20)
             # re-issue the same trajectory request, hope for headers to come back
@@ -154,7 +151,6 @@ def getStatsOut(guid):
                 headers="0"
 
     except KeyError:
-        print(headers)
         # sometimes AMP server returns misformatted header in 429 code. 
         pass
 
