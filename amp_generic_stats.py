@@ -161,7 +161,7 @@ try:
     # Get Headers
     headers=response.headers
     # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    if int(headers['X-RateLimit-Remaining']) < 10:
+    if int(headers['X-RateLimit-Remaining']) < 45:
         time.sleep(int(headers['X-RateLimit-Reset'])+5)
     # Decode JSON response
     response_json = response.json()
@@ -175,7 +175,7 @@ try:
             response = session.get(next_url, verify=False)
             headers=response.headers
             # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            if int(headers['X-RateLimit-Remaining']) < 10:
+            if int(headers['X-RateLimit-Remaining']) < 45:
                 timeout=int(headers['X-RateLimit-Reset'])
                 time.sleep(timeout+5)
             # Extract
