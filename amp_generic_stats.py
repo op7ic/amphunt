@@ -62,9 +62,42 @@ class BoundedExecutor:
     def shutdown(self, wait=True):
         self.executor.shutdown(wait)
 
+def trajectoryRequest(guid):
+    try:
+        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+        trajectory_response = session.get(trajectory_url, verify=False,timeout=90)
+        if trajectory_response != None:
+            # Extract headers (these are also returned)
+            headers=trajectory_response.headers
+            # check if we correctly got headers
+            if headers != None:
+                # In theory we should never reach point this because job scheduler below should take care of measuring API consumption
+                # If we do reach this, we can have multiple threads sleeping at the same time since they all hit the same function. That's OK
+                # We stop on 45 due to number of threads working
+                if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
+                    if(int(headers['X-RateLimit-Remaining']) < 45):
+                        if(headers['Status'] == "200 OK"):
+                            # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                            # For some reason simply using time.sleep does not work very well here
+                            Event().wait((int(headers['X-RateLimit-Reset'])+5))
+                        if(headers['Status'] == "429 Too Many Requests"):
+                            # Triggered too many request, we need to sleep before it continues
+                            # For some reason simply using time.sleep does not work very well here
+                            Event().wait((int(headers['X-RateLimit-Reset'])+5))
+                    else:
+                        return headers
+                else:
+                    return "0"
+            else:
+                return "0"
+    except KeyError:
+        return "0"
+    except:
+        return "0"
+
 def getStatsOut(guid):
     """ Function to perform lookup on specific event type"""
-    # Extract trajectory of computers based on their guid
+    """ Extract trajectory of computers based on their guid """
     try:
         trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
         # Wait up to 90 seconds to return results
@@ -89,20 +122,42 @@ def getStatsOut(guid):
                             # For some reason simply using time.sleep does not work very well here
                             Event().wait((int(headers['X-RateLimit-Reset'])+5))
                 else:
-                    # We sleep - this could be connection problem, returned headers are messed up
+                    print(headers)
+                    # We sleep - this could be connection problem, returned headers don't contain any info that we need to set timer up
                     Event().wait(20)
+                    # re-issue the same trajectory request, hope for headers to come back
+                    h = trajectoryRequest(guid)
+                    # check if we got the right parameters in there
+                    if h != "0" and 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(h):
+                        headers=h
+                    else:
+                        headers="0"
             else:
+                print(headers)
                 # headers are empty, return 0 so job worker will know what to do next
                 Event().wait(20)
-                return "0"
+                # re-issue the same trajectory request, hope for headers to come back
+                h = trajectoryRequest(guid)
+                if h != "0" and 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(h):
+                    headers=h
+                else:
+                    headers="0"
         else:
+            print(headers)
             # Trajectory is empty, return 0 so job worker will know what to do next
             Event().wait(20)
-            return "0"
+            # re-issue the same trajectory request, hope for headers to come back
+            h = trajectoryRequest(guid)
+            if h != "0" and 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(h):
+                headers=h
+            else:
+                headers="0"
 
     except KeyError:
+        print(headers)
         # sometimes AMP server returns misformatted header in 429 code. 
         pass
+
 
     # define variables which will be applicable per each GUID
     vulnerable=0
@@ -120,49 +175,60 @@ def getStatsOut(guid):
     # Igonore errors since it would mean they simply don't fit in defintion below
     try:
         trajectory_response_json = trajectory_response.json()
-        events = trajectory_response_json['data']['events']
-        for event in events:
-            event_type = event['event_type']
-            time = event['date'] 
+        # check we got JSON
+        if trajectory_response_json != None:
+            # check we got events
+            events = trajectory_response_json['data']['events']
+            if events != None:
 
-            #filter by specific event type  
-            if event_type == 'Vulnerable Application Detected':
-                vulnerable+=1
-            if event_type == 'NFM':
-                nfm+=1
-            if event_type == 'Executed by':
-                executed+=1
-            if event_type == 'Created by':
-                create+=1
-            if event_type == 'Moved by':
-                moved+=1
-            if event_type == 'Threat Quarantined':
-                threat_q+=1
-            if event_type == 'Threat Detected':
-                threat_d+=1
-            if event_type == 'Quarantine Failure':
-                quarantine_fail+=1
-            if event_type == 'Malicious Activity Detection':
-                malicious_activity+=1
-            if event_type == 'Execution Blocked':
-                exec_blocked+=1
-            if event_type == 'Executed Malware':
-                exec_malware+=1
-        print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
-            time,
-            guid,
-            computer_guids[guid]['hostname'],
-            vulnerable,
-            nfm,
-            executed,
-            create,
-            moved,
-            threat_q,
-            threat_d,
-            quarantine_fail,
-            malicious_activity,
-            exec_blocked,
-            exec_malware))
+                for event in events:
+                    event_type = event['event_type']
+                    time = event['date'] 
+
+                    #filter by specific event type  
+                    if event_type == 'Vulnerable Application Detected':
+                        vulnerable+=1
+                    if event_type == 'NFM':
+                        nfm+=1
+                    if event_type == 'Executed by':
+                        executed+=1
+                    if event_type == 'Created by':
+                        create+=1
+                    if event_type == 'Moved by':
+                        moved+=1
+                    if event_type == 'Threat Quarantined':
+                        threat_q+=1
+                    if event_type == 'Threat Detected':
+                        threat_d+=1
+                    if event_type == 'Quarantine Failure':
+                        quarantine_fail+=1
+                    if event_type == 'Malicious Activity Detection':
+                        malicious_activity+=1
+                    if event_type == 'Execution Blocked':
+                        exec_blocked+=1
+                    if event_type == 'Executed Malware':
+                        exec_malware+=1
+                print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
+                    time,
+                    guid,
+                    computer_guids[guid]['hostname'],
+                    vulnerable,
+                    nfm,
+                    executed,
+                    create,
+                    moved,
+                    threat_q,
+                    threat_d,
+                    quarantine_fail,
+                    malicious_activity,
+                    exec_blocked,
+                    exec_malware))
+            else:
+                # event list is empty
+                return "0"
+        else:
+            # JSON is empty
+            return "0"
     except:
         pass
 
@@ -233,7 +299,7 @@ try:
                                 time.sleep((int(headers['X-RateLimit-Reset'])+5))
                     elif headers== "0":
                         # Header object is wrong. This is likley 429 response so sleep extra 10 before moving on to next GUID object
-                        # In theory this shouldn't be reached unless threads somehow skip more than 45 requests or server responds back with junk
+                        # In theory this shouldn't be reached unless something bad is going on and workers don't return correct data
                         time.sleep(10)
                         continue
                     # reset counter back to 0
