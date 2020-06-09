@@ -5,9 +5,8 @@ import configparser
 import time
 import gc
 from urllib.parse import urlparse
-import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
-import threading
+from threading import BoundedSemaphore
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning

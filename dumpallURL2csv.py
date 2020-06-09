@@ -5,9 +5,8 @@ import configparser
 import time
 import gc
 from urllib.parse import urlparse
-import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
-import threading
+from threading import BoundedSemaphore
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -16,8 +15,6 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # Containers for GUIDs
 computer_guids = {}
-# Create threadpool instance with 4 workers
-executor = ThreadPoolExecutor(max_workers=4)
 
 def extractGUID(data):
     """ Extract GUIDs from data structure and store them in computer_guids variable"""
@@ -25,6 +22,35 @@ def extractGUID(data):
         connector_guid = entry['connector_guid']
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
+
+class BoundedExecutor:
+    """BoundedExecutor behaves as a ThreadPoolExecutor which will block on
+    calls to submit() once the limit given as "bound" work items are queued for
+    execution.
+    :param bound: Integer - the maximum number of items in the work queue
+    :param max_workers: Integer - the size of the thread pool
+    https://www.bettercodebytes.com/theadpoolexecutor-with-a-bounded-queue-in-python/
+    """
+    def __init__(self, bound, max_workers):
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        self.semaphore = BoundedSemaphore(bound + max_workers)
+
+    """See concurrent.futures.Executor#submit"""
+    def submit(self, fn, *args, **kwargs):
+        self.semaphore.acquire()
+        try:
+            future = self.executor.submit(fn, *args, **kwargs)
+        except:
+            self.semaphore.release()
+            raise
+        else:
+            future.add_done_callback(lambda x: self.semaphore.release())
+            return future
+
+    """See concurrent.futures.Executor#shutdown"""
+    def shutdown(self, wait=True):
+        self.executor.shutdown(wait)
+
 
 def extractDomainFromURL(url):
     """ Extract domain name from URL"""
@@ -34,13 +60,22 @@ def dumpURLs(guid):
     """ Function to perform lookup on specific event type"""
     # Extract trajectory of computers based on their guid
     trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-    trajectory_response = session.get(trajectory_url, verify=False)
-    trajectory_response_json = trajectory_response.json()
+    # Wait 90 seconds to return results therefore becoming a blocking
+    # That said, no request should need 90 turnaround unless you query via satelite link
+    trajectory_response = session.get(trajectory_url, verify=False,timeout=90)
+    # Extract headers (these are also returned)
     headers=trajectory_response.headers
-    # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    if int(headers['X-RateLimit-Remaining']) < 10:
-        timeout=int(headers['X-RateLimit-Reset'])
-        time.sleep(int(timeout)+5)
+    # In theory we should never reach point this because job scheduler below should take care of measuring API consumption
+    # If we do reach this, we can have multiple threads sleeping at the same time since they all hit the same function. That's OK
+    # We stop on 45 due to number of threads working
+    if(int(headers['X-RateLimit-Remaining']) < 45):
+        if(headers['Status'] == "200 OK"):
+            # We are close to the border, in theory 429 error code should never trigger if we capture this event
+            time.sleep((int(headers['X-RateLimit-Reset'])+5))
+        if(headers['Status'] == "429 Too Many Requests"):
+            print("entered_sleep")
+            # Triggered too many request, we need to sleep before it continues
+            time.sleep((int(headers['X-RateLimit-Reset'])+5))
 
     try:
         events = trajectory_response_json['data']['events']
@@ -115,7 +150,7 @@ try:
     # Get Headers
     headers=response.headers
     # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    if int(headers['X-RateLimit-Remaining']) < 10:
+    if int(headers['X-RateLimit-Remaining']) < 45:
         time.sleep(int(headers['X-RateLimit-Reset'])+5)
     # Decode JSON response
     response_json = response.json()
@@ -129,15 +164,41 @@ try:
             response = session.get(next_url)
             headers=response.headers
             # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            if int(headers['X-RateLimit-Remaining']) < 10:
-                timeout=int(headers['X-RateLimit-Reset'])
-                time.sleep(timeout+5)
+            if int(headers['X-RateLimit-Remaining']) < 45:
+                time.sleep(int(headers['X-RateLimit-Reset'])+5)
             # Extract
             response_json = response.json()
             extractGUID(response_json['data'])
             
+    # Executor with limit on the queue by number of GUIDs
+    # Limit to 8 threads. Full size of queue is number of computer GUIDs + number of threads
+    executor = BoundedExecutor(8, len(computer_guids))
+    # Define counter so we can scan every n-th thread for API timeout
+    count = 0
     for guid in computer_guids:
-        executor.submit(dumpURLs,guid)
-
+        # submit task in non-blocking mode
+        future = executor.submit(dumpURLs,guid)
+        count+=1
+        # check every 4th thread
+        if (count == 3):
+            # .result() function will block thread and wait. so we check only every 4th thread to see if we are still ok to proceed
+            headers=future.result()
+            if 'X-RateLimit-Remaining' in str(headers):
+                if(int(headers['X-RateLimit-Remaining']) < 45):
+                    if(headers['Status'] == "200 OK"):
+                        # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                    if(headers['Status'] == "429 Too Many Requests"):
+                        # Triggered too many request, we need to sleep before it continues
+                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
+            else:
+                # Header object is wrong. This is likley 429 response so sleep extra 10 before moving on to next GUID object
+                # In theory this shouldn't be reached unless threads somehow skip more than 45 requests
+                time.sleep(10)
+                continue
+            # reset counter back to 0
+            count=0
+            
 finally:
+    # collect leftovers
     gc.collect()
