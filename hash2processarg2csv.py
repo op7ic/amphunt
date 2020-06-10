@@ -4,18 +4,13 @@ import requests
 import time
 import configparser
 import csv
-import multiprocessing
-from concurrent.futures import ThreadPoolExecutor
-import threading
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments without valid certificate)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-# Create threadpool instance with 4 workers
-executor = ThreadPoolExecutor(max_workers=4)
-# Containers for GUIDs
+# Store objects:
 computer_guids = {}
 
 def format_arguments(_arguments):
@@ -30,60 +25,6 @@ def extractGUID(data):
         connector_guid = entry['connector_guid']
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
-
-def hash2processargs2csv(thObject):
-    guid=thObject[0]
-    payload = {'q': thObject[1]}
-    trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-    trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-    headers=trajectory_response.headers
-    # Handle potential API limits
-    if int(headers['X-RateLimit-Remaining']) < 10:
-        time.sleep(int(headers['X-RateLimit-Reset'])+5)
-    trajectory_response_json = trajectory_response.json()
-    try:
-        # only focus on actual events, ignore DFC and other type of telemetry (hence pass for exception)
-        events = trajectory_response_json['data']['events']
-        # Parse trajectory events to find the network events
-        for event in events:
-            timestamp=event['date']
-            event_type = event['event_type']
-            if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
-                arguments = event['command_line']['arguments']
-                file_sha256 = event['file']['identity']['sha256']
-                parent_sha256 = event['file']['parent']['identity']['sha256']
-                file_name = event['file']['file_name']
-                file_path=event['file']['file_path']
-                #Print out line formatted for CSV0
-                print("{},{},{},{},{},{},{},{}".format(
-                    timestamp,
-                    guid,
-                    computer_guids[guid]['hostname'],
-                    file_sha256,
-                    parent_sha256,
-                    file_name,
-                    file_path,
-                    format_arguments(arguments)))
-            # this is only sensible to hunt for any binary not the arguments
-            # if 'file_name' in str(event) and 'command_line' not in str(event):
-            #     file_sha256 = event['file']['identity']['sha256']
-            #     parent_sha256 = event['file']['parent']['identity']['sha256']
-            #     file_name = event['file']['file_name']
-            #     file_path=event['file']['file_path']
-            #     #Print out line formatted for CSV
-            #     print("{},{},{},{},{},{},{},{}".format(
-            #         timestamp,
-            #         guid,
-            #         computer_guids[guid]['hostname'],
-            #         file_sha256,
-            #         parent_sha256,
-            #         file_name,
-            #         file_path,
-            #         "-"))
-                # the final line won't have command line so final argument is always "-"
-    except:
-         pass
-
 
 
 # Validate a command line parameter was provided
@@ -140,15 +81,63 @@ try:
                 headers=response.headers
                 # Ensure we don't cross API limits, sleep if we are approaching close to limits
                 if int(headers['X-RateLimit-Remaining']) < 10:
-                    time.sleep(int(headers['X-RateLimit-Reset'])+5)
+                    timeout=int(headers['X-RateLimit-Reset'])
+                    time.sleep(timeout+5)
                 # Extract
                 response_event_json = response.json()
                 extractGUID(response_event_json['data'])
 
         # Finally, for each GUID on the list we match the args with trajectory (trajectory is limited to last 500 events however)
         for guid in computer_guids:
-            executor.submit(hash2processargs2csv,(guid,sha256hash.strip()))
-
+            trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+            trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+            headers=trajectory_response.headers
+            # Handle potential API limits
+            if int(headers['X-RateLimit-Remaining']) < 10:
+                time.sleep(int(headers['X-RateLimit-Reset'])+5)
+            trajectory_response_json = trajectory_response.json()
+            try:
+                # only focus on actual events, ignore DFC and other type of telemetry (hence pass for exception)
+                events = trajectory_response_json['data']['events']
+                # Parse trajectory events to find the network events
+                for event in events:
+                    timestamp=event['date']
+                    event_type = event['event_type']
+                    if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
+                        arguments = event['command_line']['arguments']
+                        file_sha256 = event['file']['identity']['sha256']
+                        parent_sha256 = event['file']['parent']['identity']['sha256']
+                        file_name = event['file']['file_name']
+                        file_path=event['file']['file_path']
+                        #Print out line formatted for CSV0
+                        print("{},{},{},{},{},{},{},{}".format(
+                            timestamp,
+                            guid,
+                            computer_guids[guid]['hostname'],
+                            file_sha256,
+                            parent_sha256,
+                            file_name,
+                            file_path,
+                            format_arguments(arguments)))
+                    # this is only sensible to hunt for any binary not the arguments
+                    # if 'file_name' in str(event) and 'command_line' not in str(event):
+                    #     file_sha256 = event['file']['identity']['sha256']
+                    #     parent_sha256 = event['file']['parent']['identity']['sha256']
+                    #     file_name = event['file']['file_name']
+                    #     file_path=event['file']['file_path']
+                    #     #Print out line formatted for CSV
+                    #     print("{},{},{},{},{},{},{},{}".format(
+                    #         timestamp,
+                    #         guid,
+                    #         computer_guids[guid]['hostname'],
+                    #         file_sha256,
+                    #         parent_sha256,
+                    #         file_name,
+                    #         file_path,
+                    #         "-"))
+                        # the final line won't have command line so final argument is always "-"
+            except:
+                 pass
 
 finally:
     fp.close()

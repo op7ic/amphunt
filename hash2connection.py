@@ -3,16 +3,12 @@ import sys
 import requests
 import configparser
 import time
-import multiprocessing
-from concurrent.futures import ThreadPoolExecutor
-import threading
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-# Create threadpool instance with 4 workers
-executor = ThreadPoolExecutor(max_workers=4)
+
 
 def format_arguments(_arguments):
     """ If arguments are in a list join them as a single string"""
@@ -26,68 +22,6 @@ def extractGUID(data):
         connector_guid = entry['connector_guid']
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
-
-def hash2connection(thObject):
-    """ Function to perform lookup on specific event type"""
-    # Print the hostname and GUID that is about to be queried
-    # print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
-    try:
-        guid=thObject[0]
-        payload = {'q': thObject[1]}
-        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-        trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-        # Decode JSON response
-        trajectory_response_json = trajectory_response.json()
-        headers=trajectory_response.headers
-        # Ensure we don't cross API limits, sleep if we are approaching close to limits
-        if int(headers['X-RateLimit-Remaining']) < 10:
-            time.sleep(int(headers['X-RateLimit-Reset'])+5)
-        # Name events section of JSON
-        events = trajectory_response_json['data']['events']
-        # Parse trajectory events to find the network events
-        for event in events:
-            event_type = event['event_type']
-            time=event['date']
-            if event_type == 'NFM':
-                network_info = event['network_info']
-                protocol = network_info['nfm']['protocol']
-                local_ip = network_info['local_ip']
-                local_port = network_info['local_port']
-                remote_ip = network_info['remote_ip']
-                remote_port = network_info['remote_port']
-                direction = network_info['nfm']['direction']
-                if direction == 'Outgoing connection from':
-                    print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(time,payload['q'],computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                if direction == 'Incoming connection from':
-                    print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t\t {} : {} : {} : {} {}:{} <- {}:{}'.format(time,payload['q'],computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-            if event_type == 'DFC Threat Detected':
-                network_info = event['network_info']
-                local_ip = network_info['local_ip']
-                local_port = network_info['local_port']
-                remote_ip = network_info['remote_ip']
-                remote_port = network_info['remote_port']
-                print("\t\t [+] Device flow correlation network event at hostname: {} ".format(computer_guids[guid]['hostname']))
-                print('\t\t {} : {} : {} : DFC: {}:{} - {}:{}'.format(time,payload['q'],computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
-            if event_type == 'NFM' and 'dirty_url' in str(event):
-                network_info = event['network_info']
-                dirty_url= event['network_info']['dirty_url']
-                protocol = network_info['nfm']['protocol']
-                local_ip = network_info['local_ip']
-                local_port = network_info['local_port']
-                remote_ip = network_info['remote_ip']
-                remote_port = network_info['remote_port']
-                direction = network_info['nfm']['direction']
-                if direction == 'Outgoing connection from':
-                    print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t\t {} : {} : Host: {} {} {}:{} -> {}:{}'.format(time,payload['q'],computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                    print('\t\t\t {} : {} : Host: {} URL: {}'.format(time,payload['q'],computer_guids[guid]['hostname'], dirty_url))
-                if direction == 'Incoming connection from':
-                    print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t\t {} : {} : {} : {} {}:{} <- {}:{}'.format(time,payload['q'],computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-    except:
-        pass
 
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -103,11 +37,13 @@ domainIP = config['settings']['domainIP']
 # Store the command line parameter
 sha256hashfile = sys.argv[2]
 
+
+remote_ips = {}
+
 try:
     fp = open(sha256hashfile,'r')
     for sha256hash in fp.readlines():
-        # Since pool is asyn this printout no longer make sense
-        #print("\n[+] Hunting for hash: {}".format(sha256hash))
+        print("\n[+] Hunting for hash: {}".format(sha256hash))
 		# Containers for output
         computer_guids = {}
         parent_to = {}
@@ -150,11 +86,80 @@ try:
                 response_json = response.json()
                 extractGUID(response_json['data'])
 
-        # Since pool is asyn this printout no longer make sense
-        #print('\t[+] Computers found: {}'.format(len(computer_guids)))
+
+        print('\t[+] Computers found: {}'.format(len(computer_guids)))
 
 		# Query trajectory for each GUID
         for guid in computer_guids:
-            executor.submit(hash2connection,(guid,sha256hash.strip()))			
+			# Print the hostname and GUID that is about to be queried
+            print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
+            try:
+                trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+                trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+    			# Decode JSON response
+                trajectory_response_json = trajectory_response.json()
+                headers=trajectory_response.headers
+                # Ensure we don't cross API limits, sleep if we are approaching close to limits
+                if int(headers['X-RateLimit-Remaining']) < 10:
+                    timeout=int(headers['X-RateLimit-Reset'])
+                    time.sleep(timeout+5)
+    			# Name events section of JSON
+                events = trajectory_response_json['data']['events']
+    			# Parse trajectory events to find the network events
+                for event in events:
+                    event_type = event['event_type']
+                    time=event['date']
+                    if event_type == 'NFM':
+                        network_info = event['network_info']
+                        protocol = network_info['nfm']['protocol']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        direction = network_info['nfm']['direction']
+                        if remote_ip not in remote_ips:
+                            remote_ips[remote_ip] = {'ports':[]}
+                        if remote_port not in remote_ips[remote_ip]['ports']:
+                            remote_ips[remote_ip]['ports'].append(remote_port)
+                        if direction == 'Outgoing connection from':
+                            print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                            print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Incoming connection from':
+                            print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                            print('\t\t\t {} : {} : {} {}:{} <- {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                    if event_type == 'DFC Threat Detected':
+                        network_info = event['network_info']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        if remote_ip not in remote_ips:
+                            remote_ips[remote_ip] = {'ports':[]}
+                        if remote_port not in remote_ips[remote_ip]['ports']:
+                            remote_ips[remote_ip]['ports'].append(remote_port)
+                        print("\t\t [+] Device flow correlation network event at hostname: {} ".format(computer_guids[guid]['hostname']))
+                        print('\t\t {} : {} : DFC: {}:{} - {}:{}'.format(time,computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
+                    if event_type == 'NFM' and 'dirty_url' in str(event):
+                        network_info = event['network_info']
+                        dirty_url= event['network_info']['dirty_url']
+                        protocol = network_info['nfm']['protocol']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        direction = network_info['nfm']['direction']
+                        if remote_ip not in remote_ips:
+                            remote_ips[remote_ip] = {'ports':[]}
+                        if remote_port not in remote_ips[remote_ip]['ports']:
+                            remote_ips[remote_ip]['ports'].append(remote_port)
+                        if direction == 'Outgoing connection from':
+                            print("\t\t [+] Outbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                            print('\t\t\t {} : Host: {} {} {}:{} -> {}:{}'.format(time,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                            print('\t\t\t {} : Host: {} URL: {}'.format(time, computer_guids[guid]['hostname'], dirty_url))
+                        if direction == 'Incoming connection from':
+                            print("\t\t [+] Inbound network event at hostname:{} ".format(computer_guids[guid]['hostname']))
+                            print('\t\t\t {} : {} : {} {}:{} <- {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+            except:
+                pass
 finally:
     fp.close()

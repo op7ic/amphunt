@@ -5,10 +5,6 @@ import configparser
 import time
 import gc
 from urllib.parse import urlparse
-import multiprocessing
-from concurrent.futures import ThreadPoolExecutor
-import threading
-
 
 # Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -16,8 +12,6 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # Containers for GUIDs
 computer_guids = {}
-# Create threadpool instance with 4 workers
-executor = ThreadPoolExecutor(max_workers=4)
 
 def extractGUID(data):
     """ Extract GUIDs from data structure and store them in computer_guids variable"""
@@ -29,110 +23,6 @@ def extractGUID(data):
 def extractDomainFromURL(url):
     """ Extract domain name from URL"""
     return urlparse(url).netloc
-
-def searchConnections(guid):
-    """ Function to perform lookup on specific event type"""
-    trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-    trajectory_response = session.get(trajectory_url, verify=False)
-    trajectory_response_json = trajectory_response.json()
-    headers=trajectory_response.headers
-    if int(headers['X-RateLimit-Remaining']) < 10:
-        timeout=int(headers['X-RateLimit-Reset'])
-        time.sleep(int(timeout)+5)
-    try:
-        events = trajectory_response_json['data']['events']
-        for event in events:
-            event_type = event['event_type']
-            time = event['date']
-            if event_type == 'NFM':
-                network_info = event['network_info']
-                protocol = network_info['nfm']['protocol']
-                local_ip = network_info['local_ip']
-                local_port = network_info['local_port']
-                remote_ip = network_info['remote_ip']
-                remote_port = network_info['remote_port']
-                direction = network_info['nfm']['direction']
-                if direction == 'Outgoing connection from':
-                    print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                        time,
-                        guid,
-                        computer_guids[guid]['hostname'],
-                        'NFM',
-                        local_ip,
-                        local_port,
-                        remote_ip,
-                        remote_port,
-                        'outbound',
-                        '-',
-                        '-'))
-                if direction == 'Incoming connection from':
-                    print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                        time,
-                        guid,
-                        computer_guids[guid]['hostname'],
-                        'NFM',
-                        local_ip,
-                        local_port,
-                        remote_ip,
-                        remote_port,
-                        'inbound',
-                        '-',
-                        '-'))
-            if event_type == 'DFC Threat Detected':
-                network_info = event['network_info']
-                local_ip = network_info['local_ip']
-                local_port = network_info['local_port']
-                remote_ip = network_info['remote_ip']
-                remote_port = network_info['remote_port']
-                print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                        time,
-                        guid,
-                        computer_guids[guid]['hostname'],
-                        'DFC',
-                        local_ip,
-                        local_port,
-                        remote_ip,
-                        remote_port,
-                        'DFC Threat Detected',
-                        '-',
-                        '-'))                    
-            # if event_type == 'NFM' and 'dirty_url' in str(event):
-            #     network_info = event['network_info']
-            #     dirty_url= event['network_info']['dirty_url']
-            #     protocol = network_info['nfm']['protocol']
-            #     local_ip = network_info['local_ip']
-            #     local_port = network_info['local_port']
-            #     remote_ip = network_info['remote_ip']
-            #     remote_port = network_info['remote_port']
-            #     direction = network_info['nfm']['direction']
-            #     if direction == 'Outgoing connection from':
-            #         print("{},{},{},{},{},{},{},{},{},{},{}".format(
-            #             time,
-            #             guid,
-            #             computer_guids[guid]['hostname'],
-            #             'NFM URL',
-            #             local_ip,
-            #             local_port,
-            #             remote_ip,
-            #             remote_port,
-            #             'outbound',
-            #             str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
-            #             str(dirty_url).replace(".","[.]")))       
-            #     if direction == 'Incoming connection from':
-            #         print("{},{},{},{},{},{},{},{},{},{},{}".format(
-            #             time,
-            #             guid,
-            #             computer_guids[guid]['hostname'],
-            #             'NFM URL',
-            #             local_ip,
-            #             local_port,
-            #             remote_ip,
-            #             remote_port,
-            #             'inbound',
-            #             str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
-            #             str(dirty_url).replace(".","[.]")))
-    except:
-        pass
 
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -181,9 +71,106 @@ try:
             # Extract
             response_json = response.json()
             extractGUID(response_json['data'])
-    # add tasks to thread pool
+
+
     for guid in computer_guids:
-        executor.submit(searchConnections,guid)
-        
+        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+        trajectory_response = session.get(trajectory_url, verify=False)
+        trajectory_response_json = trajectory_response.json()
+
+        try:
+            events = trajectory_response_json['data']['events']
+            for event in events:
+                event_type = event['event_type']
+                time = event['date']
+                if event_type == 'NFM':
+                    network_info = event['network_info']
+                    protocol = network_info['nfm']['protocol']
+                    local_ip = network_info['local_ip']
+                    local_port = network_info['local_port']
+                    remote_ip = network_info['remote_ip']
+                    remote_port = network_info['remote_port']
+                    direction = network_info['nfm']['direction']
+                    if direction == 'Outgoing connection from':
+                        print("{},{},{},{},{},{},{},{},{},{},{}".format(
+                            time,
+                            guid,
+                            computer_guids[guid]['hostname'],
+                            'NFM',
+                            local_ip,
+                            local_port,
+                            remote_ip,
+                            remote_port,
+                            'outbound',
+                            '-',
+                            '-'))
+                    if direction == 'Incoming connection from':
+                        print("{},{},{},{},{},{},{},{},{},{},{}".format(
+                            time,
+                            guid,
+                            computer_guids[guid]['hostname'],
+                            'NFM',
+                            local_ip,
+                            local_port,
+                            remote_ip,
+                            remote_port,
+                            'inbound',
+                            '-',
+                            '-'))
+                if event_type == 'DFC Threat Detected':
+                    network_info = event['network_info']
+                    local_ip = network_info['local_ip']
+                    local_port = network_info['local_port']
+                    remote_ip = network_info['remote_ip']
+                    remote_port = network_info['remote_port']
+                    print("{},{},{},{},{},{},{},{},{},{},{}".format(
+                            time,
+                            guid,
+                            computer_guids[guid]['hostname'],
+                            'DFC',
+                            local_ip,
+                            local_port,
+                            remote_ip,
+                            remote_port,
+                            'DFC Threat Detected',
+                            '-',
+                            '-'))                    
+                if event_type == 'NFM' and 'dirty_url' in str(event):
+                    network_info = event['network_info']
+                    dirty_url= event['network_info']['dirty_url']
+                    protocol = network_info['nfm']['protocol']
+                    local_ip = network_info['local_ip']
+                    local_port = network_info['local_port']
+                    remote_ip = network_info['remote_ip']
+                    remote_port = network_info['remote_port']
+                    direction = network_info['nfm']['direction']
+                    if direction == 'Outgoing connection from':
+                        print("{},{},{},{},{},{},{},{},{},{},{}".format(
+                            time,
+                            guid,
+                            computer_guids[guid]['hostname'],
+                            'NFM URL',
+                            local_ip,
+                            local_port,
+                            remote_ip,
+                            remote_port,
+                            'outbound',
+                            str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
+                            str(dirty_url).replace(".","[.]")))       
+                    if direction == 'Incoming connection from':
+                        print("{},{},{},{},{},{},{},{},{},{},{}".format(
+                            time,
+                            guid,
+                            computer_guids[guid]['hostname'],
+                            'NFM URL',
+                            local_ip,
+                            local_port,
+                            remote_ip,
+                            remote_port,
+                            'inbound',
+                            str(extractDomainFromURL(dirty_url)).replace(".","[.]"),
+                            str(dirty_url).replace(".","[.]")))
+        except:
+            pass
 finally:
     gc.collect()
