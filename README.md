@@ -139,6 +139,15 @@ notepad64
 ransom
 ```
 
+## lateral_movement.py
+
+This script tracks internal connections to RDP/WMIC/WINRM/SMB.
+
+How to invoke:
+```
+python3 lateral_movement.py <config file.txt>
+```
+
 ## all_vulnerabilities2csv.py
 
 This script dumps all vulnerabilities observed across all connectors and prints it in CSV format. It will print out information about oldest CVE/CVSS as well as averaged CVSS score, along with other information.
@@ -314,7 +323,7 @@ nltest
 net + administrator
 vulnerable software (using event code 1107296279)
 wevtutil.exe cl (cleanup ofr event logs)
-hacking tools (see hashset/hacking-tools)
+hacking tools (see hashset/hacking-tools folder)
 ```
 
 ## GitHub hashes for popular hacking tools:
@@ -333,11 +342,18 @@ Various GitHub repositories can also be used for hunting. SHA256 hashes from the
 - [PoshC2](https://github.com/nettitude/PoshC2)
 - [windows-kernel-exploits](https://github.com/SecWiki/windows-kernel-exploits)
 - [sqlmap](https://github.com/sqlmapproject/sqlmap)
+- [SharpCollection](https://github.com/Flangvik/SharpCollection)
+- [exploitdb](https://github.com/offensive-security/exploitdb)
 
 
 ## Limitations
 
-AMP activity timeline allows to search only last 500 events so historical data might be limited. 
+- AMP activity trajectory allows to search only last 500 events so historical data might be limited. 
+- Since scripts use threading to optimize requests try not to run more than 1 script at the time (it still runs few threads). AMP API limits the requests to 3000/h so running multiple scripts simply means threading will eventually start competing for the same API access. This can lead to some unpredicted behaviours.  
+
+## Prerequisites 
+
+- Python3.6+
 
 ## TODO
 
@@ -345,5 +361,5 @@ AMP activity timeline allows to search only last 500 events so historical data m
 - [x] Handle pagination
 - [ ] Optimize output
 - [ ] Better exception / error handling / code quality. These tools are mostly PoC for now
-- [x] Threading
+- [ ] Threading
 - [x] Hash various security tools/exploits from public repos
