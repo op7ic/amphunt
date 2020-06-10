@@ -59,7 +59,7 @@ def checkAPITimeout(headers, response):
     
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
-    sys.exit('Usage:\n %s <config file> <hashfile.txt>' % sys.argv[0])
+    sys.exit('Usage:\n %s <config file> <keywordfile.txt>' % sys.argv[0])
     
 # Parse config to extract API keys
 config = configparser.ConfigParser()
