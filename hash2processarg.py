@@ -27,9 +27,9 @@ def extractGUID(data):
 
 def checkAPITimeout(headers, request):
     """Ensure we don't cross API limits, sleep if we are approaching close to limits"""
-    if response:
+    if request:
         # Extract headers (these are also returned)
-        headers=response.headers
+        headers=request.headers
         # check if we correctly got headers
         if headers:
             # We stop on 45 due to number of threads working
