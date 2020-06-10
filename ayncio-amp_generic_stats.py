@@ -161,8 +161,28 @@ async def main():
     # Get Headers
     headers=response.headers
     # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    if int(headers['X-RateLimit-Remaining']) < 45:
-        time.sleep(int(headers['X-RateLimit-Reset'])+5)
+    # check if we correctly got headers
+    if headers != None:
+        # We stop on 45 due to number of threads working
+        if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
+            if(int(headers['X-RateLimit-Remaining']) < 45):
+                if(headers['Status'] == "200 OK"):
+                    # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                    # For some reason simply using time.sleep does not work very well here
+                    await Event().wait((int(headers['X-RateLimit-Reset'])+5))
+                if(headers['Status'] == "429 Too Many Requests"):
+                    # Triggered too many request, we need to sleep before it continues
+                    # For some reason simply using time.sleep does not work very well here
+                    await Event().wait((int(headers['X-RateLimit-Reset'])+5))
+        elif '503 Service Unavailable' in str(headers):
+            await Event().wait(20)
+        else:
+            await Event().wait(20)
+    else:
+        # we didn't get headers, sleep
+       await Event().wait(20)
+
+    print("no problem")
     # Decode JSON response
     response_json = response.json()
     #Page 1 extract all GUIDs
@@ -175,8 +195,26 @@ async def main():
             response = session.get(next_url, verify=False)
             headers=response.headers
             # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            if int(headers['X-RateLimit-Remaining']) < 45:
-                time.sleep((int(headers['X-RateLimit-Reset'])+5))
+            if headers != None:
+                # We stop on 45 due to number of threads working
+                if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
+                    if(int(headers['X-RateLimit-Remaining']) < 45):
+                        if(headers['Status'] == "200 OK"):
+                            # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                            # For some reason simply using time.sleep does not work very well here
+                            await Event().wait((int(headers['X-RateLimit-Reset'])+5))
+                        if(headers['Status'] == "429 Too Many Requests"):
+                            # Triggered too many request, we need to sleep before it continues
+                            # For some reason simply using time.sleep does not work very well here
+                            await Event().wait((int(headers['X-RateLimit-Reset'])+5))
+                elif '503 Service Unavailable' in str(headers):
+                    await Event().wait(20)
+                else:
+                    await Event().wait(20)
+            else:
+                # we didn't get headers, sleep
+               await Event().wait(20)
+
             # Extract GUIDs
             response_json = response.json()
             extractGUID(response_json['data'])
