@@ -17,10 +17,6 @@ def extractGUID(data):
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
 
-def extractDomainFromURL(url):
-    """ Extract domain name from URL"""
-    return urlparse(url).netloc
-
 def checkAPITimeout(headers, response):
     """Ensure we don't cross API limits, sleep if we are approaching close to limits"""
     if response:

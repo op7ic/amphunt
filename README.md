@@ -141,7 +141,7 @@ ransom
 
 ## lateral_movement.py
 
-This script tracks internal connections to RDP/WMIC/WINRM/SMB.
+This script tracks connections to RDP/WMIC/WINRM/SMB.
 
 How to invoke:
 ```
@@ -350,7 +350,7 @@ Various GitHub repositories can also be used for hunting. SHA256 hashes from the
 ## Limitations
 
 - AMP activity trajectory allows to search only last 500 events so historical data might be limited. 
-- Since scripts use threading to optimize requests try not to run more than 1 script at the time (it still runs few threads). AMP API limits the requests to 3000/h so running multiple scripts simply means threading will eventually start competing for the same API access. This can lead to some unpredicted behaviours.  
+- Experimental threading scripts are in [asyncio](https://github.com/op7ic/amphunt/tree/asyncio) directory. These are under developement.
 
 ## Prerequisites 
 
