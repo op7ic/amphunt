@@ -148,9 +148,9 @@ How to invoke:
 python3 lateral_movement.py <config file.txt>
 ```
 
-## all_vulnerabilities2csv.py
+## fresh_vulnerabilities2csv.py
 
-This script dumps all vulnerabilities observed across all connectors and prints it in CSV format. It will print out information about oldest CVE/CVSS as well as averaged CVSS score, along with other information.
+This script dumps all vulnerabilities observed across all trajectories (with 500 events limit) and prints it in CSV format. It will print out information about oldest CVE/CVSS as well as averaged CVSS score, along with other information.
 
 How to invoke:
 ```
