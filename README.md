@@ -324,6 +324,7 @@ net + administrator
 vulnerable software (using event code 1107296279)
 wevtutil.exe cl (cleanup ofr event logs)
 hacking tools (see hashset/hacking-tools folder)
+sc command disabling any of criticial security services such as SepMasterService, SAVAdminService, wscsvc, wuauserv, SavService ,MpsSvc
 ```
 
 ## GitHub hashes for popular hacking tools:
