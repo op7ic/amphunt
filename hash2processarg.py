@@ -8,6 +8,10 @@ import time
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+
+# Containers for output
+computer_guids = {}
+
 def format_arguments(_arguments):
     """ If arguments are in a list join them as a single string"""
     if isinstance(_arguments, list):
@@ -20,6 +24,35 @@ def extractGUID(data):
         connector_guid = entry['connector_guid']
         hostname = entry['hostname']
         computer_guids.setdefault(connector_guid, {'hostname':hostname})
+
+def checkAPITimeout(headers, request):
+    """Ensure we don't cross API limits, sleep if we are approaching close to limits"""
+    if response:
+        # Extract headers (these are also returned)
+        headers=response.headers
+        # check if we correctly got headers
+        if headers:
+            # We stop on 45 due to number of threads working
+            if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
+                if(int(headers['X-RateLimit-Remaining']) < 45):
+                    if(headers['Status'] == "200 OK"):
+                        # We are close to the border, in theory 429 error code should never trigger if we capture this event
+                        # For some reason simply using time.sleep does not work very well here
+                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                    if(headers['Status'] == "429 Too Many Requests"):
+                        # Triggered too many request, we need to sleep before it continues
+                        # For some reason simply using time.sleep does not work very well here
+                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
+            elif '503 Service Unavailable' in str(headers):
+                time.sleep(60)
+            else: # we got some new error
+                time.sleep(45)
+        else:
+            # no headers, request probably failed
+            time.sleep(45)
+    else: 
+        print("[-] We are not getting response from server. Quiting")
+        sys.exit(1)
     
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
@@ -39,10 +72,6 @@ try:
     fp = open(sha256hashfile,'r')
     for sha256hash in fp.readlines():
         print("\n[+] Hunting for hash: {}".format(sha256hash))
-		# Containers for output
-        computer_guids = {}
-        parent_to = {}
-        direct_commands = {'process_names':set(), 'commands':set()}
 
 		# Creat session object
 		# http://docs.python-requests.org/en/master/user/advanced/
@@ -58,11 +87,9 @@ try:
         response = session.get(activity_url, params=payload, verify=False)
       	# Get Headers
         headers=response.headers
+        # verify headers and response body for potential API limit problems
+        checkAPITimeout(headers,response)
 
-        # Ensure we don't cross API limits, sleep if we are approaching close to limits
-        if int(headers['X-RateLimit-Remaining']) < 10:
-            print("[+] Sleeping {} seconds to ensure reset clock works".format(int(headers['X-RateLimit-Reset'])))
-            time.sleep(int(headers['X-RateLimit-Reset'])+5)
 		# Decode JSON response
         response_json = response.json()
         # Extract GUIDs from first page
@@ -73,10 +100,8 @@ try:
                 next_url = response_json['metadata']['links']['next']
                 response = session.get(next_url)
                 headers=response.headers
-                # Ensure we don't cross API limits, sleep if we are approaching close to limits
-                if int(headers['X-RateLimit-Remaining']) < 10:
-                    timeout=int(headers['X-RateLimit-Reset'])
-                    time.sleep(timeout+5)
+                # verify headers and response body for potential API limit problems
+                checkAPITimeout(headers,response)
                 # Extract
                 response_json = response.json()
                 extractGUID(response_json['data'])
@@ -89,10 +114,8 @@ try:
             trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
             trajectory_response = session.get(trajectory_url, params=payload, verify=False)
             headers=trajectory_response.headers
-            # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            if int(headers['X-RateLimit-Remaining']) < 10:
-                timeout=int(headers['X-RateLimit-Reset'])
-                time.sleep(timeout+5)
+            # verify headers and response body for potential API limit problems
+            checkAPITimeout(headers,trajectory_response)
             # Decode JSON response
             trajectory_response_json = trajectory_response.json()
             # Name events section of JSON
