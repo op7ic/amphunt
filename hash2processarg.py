@@ -107,13 +107,7 @@ try:
                         file_sha256 = event['file']['identity']['sha256']
                         parent_sha256 = event['file']['parent']['identity']['sha256']
                         file_name = event['file']['file_name']
-                        print('\t\t [+] Child SHA256: {}'.format(file_sha256))
-                        print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
-                    # Disabled by default
-                    # if 'file_name' in str(event) and 'command_line' not in str(event):
-                    #     print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                    #     print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
-                    #     print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+                        print('\t\t [+] {} : {} Process name: {} ChildSHA256: {} Args: {}'.format(date,computer_guids[guid]['hostname'], file_name,file_sha256,format_arguments(arguments)))
             except:
                 pass
 finally:
