@@ -107,47 +107,52 @@ try:
     for guid in computer_guids:
         print('\n\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
         trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-        trajectory_response = session.get(trajectory_url, verify=False)
-        trajectory_response_json = trajectory_response.json()
-        headers=trajectory_response.headers
-        # Ensure we don't cross API limits, sleep if we are approaching close to limits
-        checkAPITimeout(headers, trajectory_response)
         try:
-            events = trajectory_response_json['data']['events']
-            for event in events:
-                event_type = event['event_type']
-                timestamp = event['date']
-                if event_type == 'NFM':
-                    network_info = event['network_info']
-                    protocol = network_info['nfm']['protocol']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    direction = network_info['nfm']['direction']
-                    if direction == 'Outgoing connection from' and remote_port == '445' or remote_port == '139':
-                        print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound SMB',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Incoming connection from' and local_port =='445' or remote_port =='139':
-                        print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound SMB',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Outgoing connection from' and remote_port == '3389':
-                        print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound RDP',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Incoming connection from' and local_port == '3389':
-                        print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound RDP',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Outgoing connection from' and remote_port == '5985':
-                        print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WINRM - HTTP',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Incoming connection from' and local_port == '5985':
-                        print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WINRM - HTTP',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Outgoing connection from' and remote_port == '5986':
-                        print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WINRM - HTTPS',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Incoming connection from' and local_port == '5986':
-                        print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WINRM - HTTPS',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Outgoing connection from' and remote_port == '135':
-                        print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WMIC/SC (RPC)',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                    if direction == 'Incoming connection from' and local_port == '135':
-                        print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WMIC/SC (RPC)',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        
-        else:
-            # events array not received - we just pass
+            trajectory_response = session.get(trajectory_url, verify=False)
+            trajectory_response_json = trajectory_response.json()
+            headers=trajectory_response.headers
+            # Ensure we don't cross API limits, sleep if we are approaching close to limits
+            checkAPITimeout(headers, trajectory_response)
+            try:
+                events = trajectory_response_json['data']['events']
+                for event in events:
+                    event_type = event['event_type']
+                    timestamp = event['date']
+                    if event_type == 'NFM':
+                        network_info = event['network_info']
+                        protocol = network_info['nfm']['protocol']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        direction = network_info['nfm']['direction']
+                        if direction == 'Outgoing connection from' and remote_port == '445' or remote_port == '139':
+                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound SMB',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Incoming connection from' and local_port =='445' or remote_port =='139':
+                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound SMB',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Outgoing connection from' and remote_port == '3389':
+                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound RDP',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Incoming connection from' and local_port == '3389':
+                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound RDP',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Outgoing connection from' and remote_port == '5985':
+                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WINRM - HTTP',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Incoming connection from' and local_port == '5985':
+                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WINRM - HTTP',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Outgoing connection from' and remote_port == '5986':
+                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WINRM - HTTPS',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Incoming connection from' and local_port == '5986':
+                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WINRM - HTTPS',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Outgoing connection from' and remote_port == '135':
+                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WMIC/SC (RPC)',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                        if direction == 'Incoming connection from' and local_port == '135':
+                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WMIC/SC (RPC)',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                            
+            except:
+                # events array not received - we just pass
+                pass
+        except:
+            # this would most likley be just connection timeout 
+            time.sleep(45)
             pass
 
 finally:
