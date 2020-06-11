@@ -25,11 +25,11 @@ def extractDomainFromURL(url):
     """ Extract domain name from URL"""
     return urlparse(url).netloc
 
-def checkAPITimeout(headers, response):
-    """Ensure we don't cross API limits, sleep if we are approaching limits"""
-    if response:
+def checkAPITimeout(headers, request):
+    """Ensure we don't cross API limits, sleep if we are approaching close to limits"""
+    if str(request.status_code) == '200':
         # Extract headers (these are also returned)
-        headers=response.headers
+        headers=request.headers
         # check if we correctly got headers
         if headers:
             # We stop on 45 due to number of threads working
@@ -50,8 +50,18 @@ def checkAPITimeout(headers, response):
         else:
             # no headers, request probably failed
             time.sleep(45)
-    else: # no response from server - need to sleep a while before server allows us to query again
+    elif str(request.status_code) == '404':
+        # 404 - this could mean event timeline or event does no longer exists
+        time.sleep(45)
+        pass
+    elif str(request.status_code) == '503':
+        # server sarted to block us
         time.sleep(90)
+        pass
+    else:
+        # in any other case, sleep
+        time.sleep(90)
+        pass
 
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
