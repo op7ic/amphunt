@@ -50,9 +50,8 @@ def checkAPITimeout(headers, request):
         else:
             # no headers, request probably failed
             time.sleep(45)
-    else: 
-        print("[-] We are not getting response from server. Quiting")
-        sys.exit(1)
+    else: # no response from server - need to sleep a while before server allows us to query again
+        time.sleep(90)
     
 # Validate a command line parameter was provided
 if len(sys.argv) < 2:
