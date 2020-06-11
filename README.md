@@ -351,6 +351,8 @@ sc command disabling any of criticial security services such as SepMasterService
 mshta + ActiveXObject
 javascript + ActiveXObject 
 WScript + javascript
+w3wp spawning powershell/cmd writing to files
+http[s]/webdav url passed to lolbins 
 ```
 
 
