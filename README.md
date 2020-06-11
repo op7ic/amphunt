@@ -305,6 +305,29 @@ AMP API endpoint need to be specified in the config file under 'domainIP' parame
 - ```api.amp.cisco.com``` - AMP
 - ```api.apjc.amp.cisco.com``` - AMP APJC
 
+## GitHub hashes for popular hacking tools:
+
+Various GitHub repositories can also be used for hunting. SHA256 hashes from these repositories, along with historic versions, are captured in the [hashset](hashset/) directory under either the [exploits](hashset/exploits) folder or the [hacking-tools](hashset/hacking-tools). At present, the following repositories are fully hashed (including all historical commits):
+
+- [linux-kernel-exploits](https://github.com/SecWiki/linux-kernel-exploits)
+- [LaZagne](https://github.com/AlessandroZ/LaZagne)
+- [BeRoot](https://github.com/AlessandroZ/BeRoot)
+- [LaZagneForensic](https://github.com/AlessandroZ/LaZagneForensic)
+- [Ghostpack-CompiledBinaries](https://github.com/r3motecontrol/Ghostpack-CompiledBinaries)
+- [PowerSCCM](https://github.com/PowerShellMafia/PowerSCCM)
+- [PowerSploit](https://github.com/PowerShellMafia/PowerSploit)
+- [PoshC2_Old](https://github.com/nettitude/PoshC2_Old)
+- [impacket](https://github.com/SecureAuthCorp/impacket)
+- [PoshC2](https://github.com/nettitude/PoshC2)
+- [windows-kernel-exploits](https://github.com/SecWiki/windows-kernel-exploits)
+- [sqlmap](https://github.com/sqlmapproject/sqlmap)
+- [SharpCollection](https://github.com/Flangvik/SharpCollection)
+- [exploitdb](https://github.com/offensive-security/exploitdb)
+
+## [LOLBIN](https://lolbas-project.github.io/)
+
+[LOLBIN](https://lolbas-project.github.io/) SHA256 hashes (and other core windows tools worth hunting for) can be found in either [windows-binaries](hashset/windows-binaries) or [windows-dll](hashset/windows-dll). In partifular, [hash2processarg.py](hash2processarg.py) or [multikeyword_searchis.py](multikeyword_searchis.py) are very handy when hunting for LOLBINS since it will show associated command line arguments or network connections. 
+
 
 ## Examples of useful things to grep and search for:
 
@@ -329,25 +352,6 @@ mshta + ActiveXObject
 javascript + ActiveXObject 
 WScript + javascript
 ```
-
-## GitHub hashes for popular hacking tools:
-
-Various GitHub repositories can also be used for hunting. SHA256 hashes from these repositories, along with historic versions, are captured in the [hashset](hashset/) directory under either the [exploits](hashset/exploits) folder or the [hacking-tools](hashset/hacking-tools). At present, the following repositories are fully hashed (including all historical commits):
-
-- [linux-kernel-exploits](https://github.com/SecWiki/linux-kernel-exploits)
-- [LaZagne](https://github.com/AlessandroZ/LaZagne)
-- [BeRoot](https://github.com/AlessandroZ/BeRoot)
-- [LaZagneForensic](https://github.com/AlessandroZ/LaZagneForensic)
-- [Ghostpack-CompiledBinaries](https://github.com/r3motecontrol/Ghostpack-CompiledBinaries)
-- [PowerSCCM](https://github.com/PowerShellMafia/PowerSCCM)
-- [PowerSploit](https://github.com/PowerShellMafia/PowerSploit)
-- [PoshC2_Old](https://github.com/nettitude/PoshC2_Old)
-- [impacket](https://github.com/SecureAuthCorp/impacket)
-- [PoshC2](https://github.com/nettitude/PoshC2)
-- [windows-kernel-exploits](https://github.com/SecWiki/windows-kernel-exploits)
-- [sqlmap](https://github.com/sqlmapproject/sqlmap)
-- [SharpCollection](https://github.com/Flangvik/SharpCollection)
-- [exploitdb](https://github.com/offensive-security/exploitdb)
 
 
 ## Limitations
