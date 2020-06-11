@@ -123,14 +123,14 @@ try:
                 events = trajectory_response_json['data']['events']
                 # Parse trajectory events to find the network events
                 for event in events:
-                    time=event['date']
+                    timestamp=event['date']
                     event_type = event['event_type']
                     if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
                         arguments = event['command_line']['arguments']
                         file_sha256 = event['file']['identity']['sha256']
                         parent_sha256 = event['file']['parent']['identity']['sha256']
                         file_name = event['file']['file_name']
-                        print('\t\t [+] {} : {} Process name: {} ChildSHA256: {} Args: {}'.format(time,computer_guids[guid]['hostname'], file_name,file_sha256,format_arguments(arguments)))
+                        print('\t\t [+] {} : {} Process name: {} ChildSHA256: {} Args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,file_sha256,format_arguments(arguments)))
             except:
                 pass
 finally:

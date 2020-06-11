@@ -105,7 +105,7 @@ try:
             events = trajectory_response_json['data']['events']
             for event in events:
                 event_type = event['event_type']
-                time = event['date'] 
+                timestamp = event['date'] 
                 CVSS_list=list()
                 allCVE=list()
                 #filter by specific event type  
@@ -124,7 +124,7 @@ try:
                     glob_cve=("|".join(allCVE))
                     # final printout of all vulnerabilities
                     print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
-                        time,
+                        timestamp,
                         guid,
                         computer_guids[guid]['hostname'],
                         'Vulnerable Application',

@@ -111,7 +111,7 @@ try:
             events = trajectory_response_json['data']['events']
             for event in events:
                 event_type = event['event_type']
-                time = event['date']
+                timestamp = event['date']
                 if event_type == 'NFM' and 'dirty_url' in str(event):
                     network_info = event['network_info']
                     dirty_url= event['network_info']['dirty_url']
@@ -123,10 +123,10 @@ try:
                     direction = network_info['nfm']['direction']
                     if direction == 'Outgoing connection from':
                         print("\t\t [+] Outbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(time,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
+                        print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(timestamp,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
                     if direction == 'Incoming connection from':
                         print("\t\t [+] Inbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(time,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
+                        print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(timestamp,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
         except:
             pass
 

@@ -111,7 +111,7 @@ try:
             events = trajectory_response_json['data']['events']
             for event in events:
                 event_type = event['event_type']
-                time = event['date']
+                timestamp = event['date']
                 if event_type == 'NFM':
                     network_info = event['network_info']
                     protocol = network_info['nfm']['protocol']
@@ -122,10 +122,10 @@ try:
                     direction = network_info['nfm']['direction']
                     if direction == 'Outgoing connection from':
                         print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(time,'outbound',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                        print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
                     if direction == 'Incoming connection from':
                         print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(time,'inbound',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                        print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
                 if event_type == 'DFC Threat Detected':
                     network_info = event['network_info']
                     local_ip = network_info['local_ip']
@@ -133,7 +133,7 @@ try:
                     remote_ip = network_info['remote_ip']
                     remote_port = network_info['remote_port']
                     print("\t\t [+] Device flow correlation network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                    print('\t\t\t {} : {} DFC: {}:{} - {}:{}'.format(time,computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
+                    print('\t\t\t {} : {} DFC: {}:{} - {}:{}'.format(timestamp,computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
                     
                 if event_type == 'NFM' and 'dirty_url' in str(event):
                     network_info = event['network_info']
@@ -146,11 +146,11 @@ try:
                     direction = network_info['nfm']['direction']
                     if direction == 'Outgoing connection from':
                         print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(time,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        print('\t\t\t {} : {} : DOMAIN: {} : URL: {}'.format(time,computer_guids[guid]['hostname'],str(extractDomainFromURL(dirty_url)).replace(".","[.]"),str(dirty_url).replace(".","[.]")))
+                        print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(timestamp,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                        print('\t\t\t {} : {} : DOMAIN: {} : URL: {}'.format(timestamp,computer_guids[guid]['hostname'],str(extractDomainFromURL(dirty_url)).replace(".","[.]"),str(dirty_url).replace(".","[.]")))
                     if direction == 'Incoming connection from':
                         print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                        print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(timestamp,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
         except: # that shouldn't really happen
             pass
 

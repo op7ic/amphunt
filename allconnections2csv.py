@@ -109,7 +109,7 @@ try:
             events = trajectory_response_json['data']['events']
             for event in events:
                 event_type = event['event_type']
-                time = event['date']
+                timestamp = event['date']
                 if event_type == 'NFM':
                     network_info = event['network_info']
                     protocol = network_info['nfm']['protocol']
@@ -120,7 +120,7 @@ try:
                     direction = network_info['nfm']['direction']
                     if direction == 'Outgoing connection from':
                         print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                            time,
+                            timestamp,
                             guid,
                             computer_guids[guid]['hostname'],
                             'NFM',
@@ -133,7 +133,7 @@ try:
                             '-'))
                     if direction == 'Incoming connection from':
                         print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                            time,
+                            timestamp,
                             guid,
                             computer_guids[guid]['hostname'],
                             'NFM',
@@ -151,7 +151,7 @@ try:
                     remote_ip = network_info['remote_ip']
                     remote_port = network_info['remote_port']
                     print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                            time,
+                            timestamp,
                             guid,
                             computer_guids[guid]['hostname'],
                             'DFC',
@@ -173,7 +173,7 @@ try:
                     direction = network_info['nfm']['direction']
                     if direction == 'Outgoing connection from':
                         print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                            time,
+                            timestamp,
                             guid,
                             computer_guids[guid]['hostname'],
                             'NFM URL',
@@ -186,7 +186,7 @@ try:
                             str(dirty_url).replace(".","[.]")))       
                     if direction == 'Incoming connection from':
                         print("{},{},{},{},{},{},{},{},{},{},{}".format(
-                            time,
+                            timestamp,
                             guid,
                             computer_guids[guid]['hostname'],
                             'NFM URL',

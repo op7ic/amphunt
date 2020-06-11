@@ -130,7 +130,7 @@ try:
 
                 # Parse trajectory events to find the network events
                 for event in events:
-                    time=event['date']
+                    timestamp=event['date']
                     event_type = event['event_type']
                     # Search for executed
                     if 'Moved by' in str(event_type):
@@ -143,12 +143,12 @@ try:
                             direct_commands['process_names'].add(file_name)
                             direct_commands['commands'].add(format_arguments(arguments))
                             print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
                         #Search for any binaries
                         if 'file_name' in str(event) and 'command_line' not in str(event):
                             print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
-                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
+                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
 
                     if 'Threat Detected' in str(event_type):
                         # Search for any command lines executed
@@ -160,13 +160,13 @@ try:
                             direct_commands['process_names'].add(file_name)
                             direct_commands['commands'].add(format_arguments(arguments))
                             print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
                         #Search for any binaries
                         if 'file_name' in str(event) and 'command_line' not in str(event):
                             print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
+                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
                             if 'parent' in str(event):
-                                print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+                                print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
                             else:
                                 pass
 
@@ -180,12 +180,12 @@ try:
                             direct_commands['process_names'].add(file_name)
                             direct_commands['commands'].add(format_arguments(arguments))
                             print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
                         #Search for any binaries
                         if 'file_name' in str(event) and 'command_line' not in str(event):
                             print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
-                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
+                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
 
                     if 'Created' in str(event_type):
                         # Search for any command lines executed
@@ -197,12 +197,12 @@ try:
                             direct_commands['process_names'].add(file_name)
                             direct_commands['commands'].add(format_arguments(arguments))
                             print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
                         #Search for any binaries
                         if 'file_name' in str(event) and 'command_line' not in str(event):
                             print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
-                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
+                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
 
 
                     if 'Executed' in str(event_type):
@@ -215,12 +215,12 @@ try:
                             direct_commands['process_names'].add(file_name)
                             direct_commands['commands'].add(format_arguments(arguments))
                             print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(time,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
+                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
                         #Search for any binaries
                         if 'file_name' in str(event) and 'command_line' not in str(event):
                             print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(time,computer_guids[guid]['hostname'],event['file']['file_path']))
-                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(time,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
+                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
 
                     # Search for network-type events
                     if event_type == 'NFM':
@@ -233,10 +233,10 @@ try:
                         direction = network_info['nfm']['direction']
                         if direction == 'Outgoing connection from':
                             print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(time,'outbound',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
                         if direction == 'Incoming connection from':
                             print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(time,'inbound',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
                     if event_type == 'DFC Threat Detected':
                         network_info = event['network_info']
                         local_ip = network_info['local_ip']
@@ -244,7 +244,7 @@ try:
                         remote_ip = network_info['remote_ip']
                         remote_port = network_info['remote_port']
                         print("\t\t [+] Device flow correlation network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} : {} DFC: {}:{} - {}:{}'.format(time,computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
+                        print('\t\t\t {} : {} DFC: {}:{} - {}:{}'.format(timestamp,computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
                         
                     if event_type == 'NFM' and 'dirty_url' in str(event):
                         network_info = event['network_info']
@@ -257,11 +257,11 @@ try:
                         direction = network_info['nfm']['direction']
                         if direction == 'Outgoing connection from':
                             print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(time,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                            print('\t\t\t {} : {} : DOMAIN: {} : URL: {}'.format(time,computer_guids[guid]['hostname'],str(extractDomainFromURL(dirty_url)).replace(".","[.]"),str(dirty_url).replace(".","[.]")))
+                            print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(timestamp,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
+                            print('\t\t\t {} : {} : DOMAIN: {} : URL: {}'.format(timestamp,computer_guids[guid]['hostname'],str(extractDomainFromURL(dirty_url)).replace(".","[.]"),str(dirty_url).replace(".","[.]")))
                         if direction == 'Incoming connection from':
                             print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(time,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
+                            print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(timestamp,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
             except:# sometimes we get 404 on connector (it no longer exist but data is still in the activity)
                 pass
      
