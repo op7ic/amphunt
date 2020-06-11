@@ -114,33 +114,39 @@ try:
                 # Extract
                 response_json = response.json()
                 extractGUID(response_json['data'])
-            print('\t[+] Computers found: {}'.format(len(computer_guids)))
+        print('\t[+] Computers found: {}'.format(len(computer_guids)))
 
         # Query trajectory for each GUID
         for guid in computer_guids:
             # Print the hostname and GUID that is about to be queried
             print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
             trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-            trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-            headers=trajectory_response.headers
-            # verify headers and response body for potential API limit problems
-            checkAPITimeout(headers,trajectory_response)
-            # Decode JSON response
-            trajectory_response_json = trajectory_response.json()
-            # Name events section of JSON
             try:
-                events = trajectory_response_json['data']['events']
-                # Parse trajectory events to find the network events
-                for event in events:
-                    timestamp=event['date']
-                    event_type = event['event_type']
-                    if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
-                        arguments = event['command_line']['arguments']
-                        file_sha256 = event['file']['identity']['sha256']
-                        parent_sha256 = event['file']['parent']['identity']['sha256']
-                        file_name = event['file']['file_name']
-                        print('\t\t [+] {} : {} Process name: {} ChildSHA256: {} Args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,file_sha256,format_arguments(arguments)))
+                trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+                headers=trajectory_response.headers
+                # verify headers and response body for potential API limit problems
+                checkAPITimeout(headers,trajectory_response)
+                # Decode JSON response
+                trajectory_response_json = trajectory_response.json()
+                # Name events section of JSON
+                try:
+                    events = trajectory_response_json['data']['events']
+                    # Parse trajectory events to find the network events
+                    for event in events:
+                        timestamp=event['date']
+                        event_type = event['event_type']
+                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) and 'Executed' in str(event_type):
+                            arguments = event['command_line']['arguments']
+                            file_sha256 = event['file']['identity']['sha256']
+                            parent_sha256 = event['file']['parent']['identity']['sha256']
+                            file_name = event['file']['file_name']
+                            print('\t\t [+] {} : {} Process name: {} ChildSHA256: {} Args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,file_sha256,format_arguments(arguments)))
+                except:
+                    pass
+                    
             except:
+                # server disconnected us
+                time.sleep(90)
                 pass
 finally:
     fp.close()
