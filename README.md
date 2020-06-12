@@ -353,6 +353,9 @@ javascript + ActiveXObject
 WScript + javascript
 w3wp spawning powershell/cmd writing to files
 http[s]/webdav url passed to lolbins 
+reg + HKLM\SAM
+winrm.vbs
+winrm
 ```
 
 
