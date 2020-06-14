@@ -323,6 +323,7 @@ Various GitHub repositories can also be used for hunting. SHA256 hashes from the
 - [sqlmap](https://github.com/sqlmapproject/sqlmap)
 - [SharpCollection](https://github.com/Flangvik/SharpCollection)
 - [exploitdb](https://github.com/offensive-security/exploitdb)
+- [metasploit-framework](https://github.com/rapid7/metasploit-framework)
 
 ## [LOLBIN](https://lolbas-project.github.io/)
 
