@@ -120,7 +120,7 @@ date,guid,hostname,type,source ip,source port,destination ip,destination port,di
 
 ## multikeyword_search.py
 
-This script takes a config file and list with keywords (one per line) and searches for processes/commands/network connections related to these keywords.
+This script takes a config file and list with keywords/IPs/SHA256 hashes (one per line) and searches for processes/commands/network connections related to these keywords.
 
 How to invoke:
 ```
@@ -137,6 +137,7 @@ rundll32.exe
 notepad.exe
 notepad64
 ransom
+[SHA256 hash]
 ```
 
 ## lateral_movement.py
