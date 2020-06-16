@@ -124,13 +124,13 @@ try:
 
         # Finally, for each GUID on the list we match the args with trajectory (trajectory is limited to last 500 events however)
         for guid in computer_guids:
-            trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-            trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-            headers=trajectory_response.headers
-            # Handle potential API limits
-            checkAPITimeout(headers, trajectory_response)
-            trajectory_response_json = trajectory_response.json()
             try:
+                trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+                trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+                headers=trajectory_response.headers
+                # Handle potential API limits
+                checkAPITimeout(headers, trajectory_response)
+                trajectory_response_json = trajectory_response.json()
                 # only focus on actual events, ignore DFC and other type of telemetry (hence pass for exception)
                 events = trajectory_response_json['data']['events']
                 # Parse trajectory events to find the network events

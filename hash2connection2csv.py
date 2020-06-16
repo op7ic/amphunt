@@ -109,15 +109,15 @@ try:
 
 		# Query trajectory for each GUID
         for guid in computer_guids:
-            trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-            trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-            # Decode JSON response
-            trajectory_response_json = trajectory_response.json()
-            headers=trajectory_response.headers
-            # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            checkAPITimeout(headers, trajectory_response)
-			# Print the hostname and GUID that is about to be queried
             try:
+                trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+                trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+                # Decode JSON response
+                trajectory_response_json = trajectory_response.json()
+                headers=trajectory_response.headers
+                # Ensure we don't cross API limits, sleep if we are approaching close to limits
+                checkAPITimeout(headers, trajectory_response)
+                # Print the hostname and GUID that is about to be queried
                 events = trajectory_response_json['data']['events']
                 for event in events:
                     event_type = event['event_type']

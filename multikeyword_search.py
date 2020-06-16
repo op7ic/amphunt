@@ -125,16 +125,16 @@ try:
         for guid in computer_guids:
             # Print the hostname and GUID that is about to be queried
             print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
-            trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-            trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-            headers=trajectory_response.headers
-            # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            checkAPITimeout(headers, trajectory_response)
-            # Decode JSON response
-            trajectory_response_json = trajectory_response.json()
-            # Name events section of JSON
-            try:
 
+            try:
+                trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
+                trajectory_response = session.get(trajectory_url, params=payload, verify=False)
+                headers=trajectory_response.headers
+                # Ensure we don't cross API limits, sleep if we are approaching close to limits
+                checkAPITimeout(headers, trajectory_response)
+                # Decode JSON response
+                trajectory_response_json = trajectory_response.json()
+                # Name events section of JSON
                 events = trajectory_response_json['data']['events']
 
                 # Parse trajectory events to find the network events
