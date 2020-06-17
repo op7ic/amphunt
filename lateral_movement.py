@@ -126,25 +126,25 @@ try:
                         remote_ip = network_info['remote_ip']
                         remote_port = network_info['remote_port']
                         direction = network_info['nfm']['direction']
-                        if direction == 'Outgoing connection from' and remote_port == '445' or remote_port == '139':
+                        if direction == 'Outgoing connection from' and remote_port == 445 or remote_port == 139:
                             print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound SMB',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port =='445' or remote_port =='139':
+                        if direction == 'Incoming connection from' and local_port == 445 or local_port == 139:
                             print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound SMB',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Outgoing connection from' and remote_port == '3389':
+                        if direction == 'Outgoing connection from' and remote_port == 3389:
                             print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound RDP',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port == '3389':
+                        if direction == 'Incoming connection from' and local_port == 3389:
                             print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound RDP',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Outgoing connection from' and remote_port == '5985':
+                        if direction == 'Outgoing connection from' and remote_port == 5985:
                             print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WINRM - HTTP',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port == '5985':
+                        if direction == 'Incoming connection from' and local_port == 5985:
                             print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WINRM - HTTP',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Outgoing connection from' and remote_port == '5986':
+                        if direction == 'Outgoing connection from' and remote_port == 5986:
                             print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WINRM - HTTPS',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port == '5986':
+                        if direction == 'Incoming connection from' and local_port == 5986:
                             print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WINRM - HTTPS',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Outgoing connection from' and remote_port == '135':
+                        if direction == 'Outgoing connection from' and remote_port == 135:
                             print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WMIC/SC (RPC)',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port == '135':
+                        if direction == 'Incoming connection from' and local_port == 135:
                             print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WMIC/SC (RPC)',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
                             
             except:
