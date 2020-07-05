@@ -124,7 +124,7 @@ try:
         exec_blocked=0
         exec_malware=0
         try:
-        	trajectory_response_json = trajectory_response.json()
+            trajectory_response_json = trajectory_response.json()
             events = trajectory_response_json['data']['events']
             for event in events:
                 event_type = event['event_type']
