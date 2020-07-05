@@ -107,7 +107,7 @@ try:
         # Extract trajectory of computers based on their guid
         trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
         trajectory_response = session.get(trajectory_url, verify=False)
-        trajectory_response_json = trajectory_response.json()
+
         headers=trajectory_response.headers
         # Ensure we don't cross API limits, sleep if we are approaching close to limits
         checkAPITimeout(headers, trajectory_response)
@@ -124,6 +124,7 @@ try:
         exec_blocked=0
         exec_malware=0
         try:
+        	trajectory_response_json = trajectory_response.json()
             events = trajectory_response_json['data']['events']
             for event in events:
                 event_type = event['event_type']
