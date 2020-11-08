@@ -154,7 +154,7 @@ def main():
                                         'Threat Detected',  # Threat was detected
                                         'Malicious Activity Detection',  # Malicious activity
                                         'Created by',  # File was created
-                                        'Executed by'  # File was executed
+                                        'Executed'  # File was executed
                                         }
                         if event_type in exec_strings:
                             # Search for any command lines executed
