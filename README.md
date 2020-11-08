@@ -20,6 +20,7 @@ Extracting useful intel:
 - grep for 'NFM' to find all network connections
 - grep for 'Unknown' to find all unknown files
 - grep for '\.doc\|\.xls\|\.pdf\|\.ppt' to find documents
+- use 'grep -A 10 -B 10 -i "cmd\.exe\|rundll32\.exe\|powershell\.exe" *' to see 10 lines before and after execution of cmd/rundll32/powershell
 ```
 
 ## hash2processarg.py
