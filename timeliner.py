@@ -159,13 +159,64 @@ def main():
             for event in events:
                 timestamp=event['date']
                 event_type = event['event_type']
+                # Threat is detected, major difference is lack of file type in this event so we need separate handling
+                if event_type == "Threat Detected":
+                    # Search for any command lines executed
+                    if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
+                        if(validate_dict_element(event['file'],'parent')):
+                            arguments = event['command_line']['arguments']
+                            file_sha256 = event['file']['identity']['sha256']
+                            parent_sha256 = event['file']['parent']['identity']['sha256']
+                            file_name = event['file']['file_name']
+                            direct_commands['process_names'].add(file_name)
+                            direct_commands['commands'].add(format_arguments(arguments))
+                            f.write('{} : {} : {} Parent SHA256 : {} File SHA256: {} Process name: {} Arguments: {} Disposition: {}\n'.format(timestamp,
+                                computer_guids[guid]['hostname'],
+                                event_type,
+                                parent_sha256,
+                                file_sha256, 
+                                file_name,
+                                format_arguments(arguments),
+                                event['file']['disposition']))
+                        else:
+                            arguments = event['command_line']['arguments']
+                            file_sha256 = event['file']['identity']['sha256']
+                            file_name = event['file']['file_name']
+                            direct_commands['process_names'].add(file_name)
+                            direct_commands['commands'].add(format_arguments(arguments))
+                            f.write('{} : {} : {} File SHA256: {} Process name: {} Arguments: {} Disposition: {}\n'.format(timestamp,
+                                computer_guids[guid]['hostname'],
+                                event_type,
+                                file_sha256, 
+                                file_name,
+                                format_arguments(arguments),
+                                event['file']['disposition']))
+
+                    #Search for any binaries that do not have argument
+                    if 'file_name' in str(event) and 'command_line' not in str(event):
+                        if(validate_dict_element(event['file'],'parent')):  
+                            f.write("{} : {} : {} Parent SHA256: {} File Path: {} File SHA256: {} Disposition: {}\n".format(timestamp,
+                                computer_guids[guid]['hostname'],
+                                event_type,
+                                event['file']['parent']['identity']['sha256'],
+                                event['file']['file_path'],
+                                event['file']['identity']['sha256'],
+                                event['file']['disposition']))
+                        else:
+                            f.write("{} : {} : {} File Path: {} File SHA256: {} Disposition: {}\n".format(timestamp,
+                                computer_guids[guid]['hostname'],
+                                event_type,
+                                event['file']['file_path'],
+                                event['file']['identity']['sha256'],
+                                event['file']['disposition']))
+
                 # Define event types for file action
                 exec_strings = {'Moved by', # File was moved 
-                                'Threat Detected',  # Threat was detected
                                 'Malicious Activity Detection',  # Malicious activity
                                 'Created by', # File was created
                                 'Executed by' # File was executed
                                 }
+
                 if event_type in exec_strings:
                     # Search for any command lines executed
                     if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
@@ -202,7 +253,7 @@ def main():
 
                     #Search for any binaries that do not have argument
                     if 'file_name' in str(event) and 'command_line' not in str(event):
-                        if(validate_dict_element(event['file'],'parent')):  
+                        if(validate_dict_element(event['file'],'parent')):
                             f.write("{} : {} : {} Parent SHA256: {} File Path: {} File SHA256: {} File Type: {} Disposition: {}\n".format(timestamp,
                                 computer_guids[guid]['hostname'],
                                 event_type,
@@ -306,6 +357,12 @@ def main():
             # close stream
             f.close()
 
+                    
+            # except:
+            #     print("exception")
+            #     # server disconnected us
+            #     time.sleep(90)
+            #     pass
     finally:
         print("[+] Done")
 
