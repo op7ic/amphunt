@@ -2,6 +2,15 @@
 
 This repository contains basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based on already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards handling file inputs, csv output and pagination. Known Windows SHA256 hashes were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository and can be used to hunt for potentially bad commands such as ```net user admin /add``` which rely on built-in Windows tool. In addition, various GitHub repositories with known hacking toolkits, such as [sqlmap](https://github.com/sqlmapproject/sqlmap), [LaZagne](https://github.com/AlessandroZ/LaZagne) were also hashed to provide the ability for hunting on both current and past versions of these tools. Please be aware that each script takes at least a config file as argument. Sample config file [here](config.txt).
 
+## timeliner.py
+
+This script will take config and output folder as parameters and will simply extract timeline for all endpoints. Timeline files are written to individual text file for each endpoint for ease of grepping. 
+
+How to invoke:
+```
+python3 timeliner.py --config <config file.txt> --output <output folder>
+```
+
 ## hash2processarg.py
 
 This script takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer name with matching processes along with the executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments or to hunt for malicious processes launched by specific hash. Please edit [config.txt](config.txt) and add appropriate API keys.
