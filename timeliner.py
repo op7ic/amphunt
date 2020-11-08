@@ -307,12 +307,6 @@ def main():
             # close stream
             f.close()
 
-                    
-            # except:
-            #     print("exception")
-            #     # server disconnected us
-            #     time.sleep(90)
-            #     pass
     finally:
         print("[+] Done")
 
