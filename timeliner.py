@@ -159,7 +159,6 @@ def main():
             for event in events:
                 timestamp=event['date']
                 event_type = event['event_type']
-                print(event_type)
                 # Define event types for file action
                 exec_strings = {'Moved by', # File was moved 
                                 'Threat Detected',  # Threat was detected
