@@ -11,6 +11,17 @@ How to invoke:
 python3 timeliner.py --config <config file.txt> --output <output folder>
 ```
 
+Extracting useful intel:
+```
+- grep for 'Created by' to find all newly created files and their hashes
+- grep for 'Executed by' to find all executed files
+- grep for 'Moved by' to find files moved 
+- grep for 'Threat' to find detected or quarantined threats
+- grep for 'NFM' to find all network connections
+- grep for 'Unknown' to find all unknown files
+- grep for '\.doc\|\.xls\|\.pdf\|\.ppt' to find documents
+```
+
 ## hash2processarg.py
 
 This script takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer name with matching processes along with the executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments or to hunt for malicious processes launched by specific hash. Please edit [config.txt](config.txt) and add appropriate API keys.
