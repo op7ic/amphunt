@@ -156,213 +156,214 @@ def main():
             filename = os.path.join(args.outout_folder,"{}_{}.txt".format(computer_guids[guid]['hostname'],guid))
             # Parse trajectory events to find events (max 500 per host)
             f = open(filename, "w")
-            for event in events:
-                timestamp=event['date']
-                event_type = event['event_type']
-                # Threat is detected, major difference is lack of file type in this event so we need separate handling
-                if event_type == "Threat Detected":
-                    # Search for any command lines executed
-                    if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
-                        if(validate_dict_element(event['file'],'parent')):
-                            arguments = event['command_line']['arguments']
-                            file_sha256 = event['file']['identity']['sha256']
-                            parent_sha256 = event['file']['parent']['identity']['sha256']
-                            file_name = event['file']['file_name']
-                            direct_commands['process_names'].add(file_name)
-                            direct_commands['commands'].add(format_arguments(arguments))
-                            f.write('{} : {} : {} Parent SHA256 : {} File SHA256: {} Process name: {} Arguments: {} Disposition: {}\n'.format(timestamp,
-                                computer_guids[guid]['hostname'],
-                                event_type,
-                                parent_sha256,
-                                file_sha256, 
-                                file_name,
-                                format_arguments(arguments),
-                                event['file']['disposition']))
-                        else:
-                            arguments = event['command_line']['arguments']
-                            file_sha256 = event['file']['identity']['sha256']
-                            file_name = event['file']['file_name']
-                            direct_commands['process_names'].add(file_name)
-                            direct_commands['commands'].add(format_arguments(arguments))
-                            f.write('{} : {} : {} File SHA256: {} Process name: {} Arguments: {} Disposition: {}\n'.format(timestamp,
-                                computer_guids[guid]['hostname'],
-                                event_type,
-                                file_sha256, 
-                                file_name,
-                                format_arguments(arguments),
-                                event['file']['disposition']))
+            try:
+                for event in events:
+                    checkAPITimeout(headers,trajectory_response)
+                    timestamp=event['date']
+                    event_type = event['event_type']
+                    # Threat is detected, major difference is lack of file type in this event so we need separate handling
+                    if event_type == "Threat Detected":
+                        # Search for any command lines executed
+                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
+                            if(validate_dict_element(event['file'],'parent')):
+                                arguments = event['command_line']['arguments']
+                                file_sha256 = event['file']['identity']['sha256']
+                                parent_sha256 = event['file']['parent']['identity']['sha256']
+                                file_name = event['file']['file_name']
+                                direct_commands['process_names'].add(file_name)
+                                direct_commands['commands'].add(format_arguments(arguments))
+                                f.write('{} : {} : {} Parent SHA256 : {} File SHA256: {} Process name: {} Arguments: {} Disposition: {}\n'.format(timestamp,
+                                    computer_guids[guid]['hostname'],
+                                    event_type,
+                                    parent_sha256,
+                                    file_sha256, 
+                                    file_name,
+                                    format_arguments(arguments),
+                                    event['file']['disposition']))
+                            else:
+                                arguments = event['command_line']['arguments']
+                                file_sha256 = event['file']['identity']['sha256']
+                                file_name = event['file']['file_name']
+                                direct_commands['process_names'].add(file_name)
+                                direct_commands['commands'].add(format_arguments(arguments))
+                                f.write('{} : {} : {} File SHA256: {} Process name: {} Arguments: {} Disposition: {}\n'.format(timestamp,
+                                    computer_guids[guid]['hostname'],
+                                    event_type,
+                                    file_sha256, 
+                                    file_name,
+                                    format_arguments(arguments),
+                                    event['file']['disposition']))
 
-                    #Search for any binaries that do not have argument
-                    if 'file_name' in str(event) and 'command_line' not in str(event):
-                        if(validate_dict_element(event['file'],'parent')):  
-                            f.write("{} : {} : {} Parent SHA256: {} File Path: {} File SHA256: {} Disposition: {}\n".format(timestamp,
-                                computer_guids[guid]['hostname'],
-                                event_type,
-                                event['file']['parent']['identity']['sha256'],
-                                event['file']['file_path'],
-                                event['file']['identity']['sha256'],
-                                event['file']['disposition']))
-                        else:
-                            f.write("{} : {} : {} File Path: {} File SHA256: {} Disposition: {}\n".format(timestamp,
-                                computer_guids[guid]['hostname'],
-                                event_type,
-                                event['file']['file_path'],
-                                event['file']['identity']['sha256'],
-                                event['file']['disposition']))
+                        #Search for any binaries that do not have argument
+                        if 'file_name' in str(event) and 'command_line' not in str(event):
+                            if(validate_dict_element(event['file'],'parent')):  
+                                f.write("{} : {} : {} Parent SHA256: {} File Path: {} File SHA256: {} Disposition: {}\n".format(timestamp,
+                                    computer_guids[guid]['hostname'],
+                                    event_type,
+                                    event['file']['parent']['identity']['sha256'],
+                                    event['file']['file_path'],
+                                    event['file']['identity']['sha256'],
+                                    event['file']['disposition']))
+                            else:
+                                f.write("{} : {} : {} File Path: {} File SHA256: {} Disposition: {}\n".format(timestamp,
+                                    computer_guids[guid]['hostname'],
+                                    event_type,
+                                    event['file']['file_path'],
+                                    event['file']['identity']['sha256'],
+                                    event['file']['disposition']))
 
-                # Define event types for file action
-                exec_strings = {'Moved by', # File was moved 
-                                'Malicious Activity Detection',  # Malicious activity
-                                'Created by', # File was created
-                                'Executed by' # File was executed
-                                }
+                    # Define event types for file action
+                    exec_strings = {'Moved by', # File was moved 
+                                    'Malicious Activity Detection',  # Malicious activity
+                                    'Created by', # File was created
+                                    'Executed by' # File was executed
+                                    }
 
-                if event_type in exec_strings:
-                    # Search for any command lines executed
-                    if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
-                        if(validate_dict_element(event['file'],'parent')):
-                            arguments = event['command_line']['arguments']
-                            file_sha256 = event['file']['identity']['sha256']
-                            parent_sha256 = event['file']['parent']['identity']['sha256']
-                            file_name = event['file']['file_name']
-                            direct_commands['process_names'].add(file_name)
-                            direct_commands['commands'].add(format_arguments(arguments))
-                            f.write('{} : {} : {} Parent SHA256 : {} File SHA256: {} Process name: {} Arguments: {} File Type: {} Disposition: {}\n'.format(timestamp,
-                                computer_guids[guid]['hostname'],
-                                event_type,
-                                parent_sha256,
-                                file_sha256, 
-                                file_name,
-                                format_arguments(arguments),
-                                event['file']['file_type'],
-                                event['file']['disposition']))
-                        else:
-                            arguments = event['command_line']['arguments']
-                            file_sha256 = event['file']['identity']['sha256']
-                            file_name = event['file']['file_name']
-                            direct_commands['process_names'].add(file_name)
-                            direct_commands['commands'].add(format_arguments(arguments))
-                            f.write('{} : {} : {} File SHA256: {} Process name: {} Arguments: {} File Type: {} Disposition: {}\n'.format(timestamp,
-                                computer_guids[guid]['hostname'],
-                                event_type,
-                                file_sha256, 
-                                file_name,
-                                format_arguments(arguments),
-                                event['file']['file_type'],
-                                event['file']['disposition']))
+                    if event_type in exec_strings:
+                        # Search for any command lines executed
+                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
+                            if(validate_dict_element(event['file'],'parent')):
+                                arguments = event['command_line']['arguments']
+                                file_sha256 = event['file']['identity']['sha256']
+                                parent_sha256 = event['file']['parent']['identity']['sha256']
+                                file_name = event['file']['file_name']
+                                direct_commands['process_names'].add(file_name)
+                                direct_commands['commands'].add(format_arguments(arguments))
+                                f.write('{} : {} : {} Parent SHA256 : {} File SHA256: {} Process name: {} Arguments: {} File Type: {} Disposition: {}\n'.format(timestamp,
+                                    computer_guids[guid]['hostname'],
+                                    event_type,
+                                    parent_sha256,
+                                    file_sha256, 
+                                    file_name,
+                                    format_arguments(arguments),
+                                    event['file']['file_type'],
+                                    event['file']['disposition']))
+                            else:
+                                arguments = event['command_line']['arguments']
+                                file_sha256 = event['file']['identity']['sha256']
+                                file_name = event['file']['file_name']
+                                direct_commands['process_names'].add(file_name)
+                                direct_commands['commands'].add(format_arguments(arguments))
+                                f.write('{} : {} : {} File SHA256: {} Process name: {} Arguments: {} File Type: {} Disposition: {}\n'.format(timestamp,
+                                    computer_guids[guid]['hostname'],
+                                    event_type,
+                                    file_sha256, 
+                                    file_name,
+                                    format_arguments(arguments),
+                                    event['file']['file_type'],
+                                    event['file']['disposition']))
 
-                    #Search for any binaries that do not have argument
-                    if 'file_name' in str(event) and 'command_line' not in str(event):
-                        if(validate_dict_element(event['file'],'parent')):
-                            f.write("{} : {} : {} Parent SHA256: {} File Path: {} File SHA256: {} File Type: {} Disposition: {}\n".format(timestamp,
-                                computer_guids[guid]['hostname'],
-                                event_type,
-                                event['file']['parent']['identity']['sha256'],
-                                event['file']['file_path'],
-                                event['file']['identity']['sha256'],
-                                event['file']['file_type'],
-                                event['file']['disposition']))
-                        else:
-                            f.write("{} : {} : {} File Path: {} File SHA256: {} File Type: {} Disposition: {}\n".format(timestamp,
-                                computer_guids[guid]['hostname'],
-                                event_type,
-                                event['file']['file_path'],
-                                event['file']['identity']['sha256'],
-                                event['file']['file_type'],
-                                event['file']['disposition']))
+                        #Search for any binaries that do not have argument
+                        if 'file_name' in str(event) and 'command_line' not in str(event):
+                            if(validate_dict_element(event['file'],'parent')):
+                                f.write("{} : {} : {} Parent SHA256: {} File Path: {} File SHA256: {} File Type: {} Disposition: {}\n".format(timestamp,
+                                    computer_guids[guid]['hostname'],
+                                    event_type,
+                                    event['file']['parent']['identity']['sha256'],
+                                    event['file']['file_path'],
+                                    event['file']['identity']['sha256'],
+                                    event['file']['file_type'],
+                                    event['file']['disposition']))
+                            else:
+                                f.write("{} : {} : {} File Path: {} File SHA256: {} File Type: {} Disposition: {}\n".format(timestamp,
+                                    computer_guids[guid]['hostname'],
+                                    event_type,
+                                    event['file']['file_path'],
+                                    event['file']['identity']['sha256'],
+                                    event['file']['file_type'],
+                                    event['file']['disposition']))
 
-                # Search for network-type events
-                elif event_type == 'NFM':
-                    network_info = event['network_info']
-                    protocol = network_info['nfm']['protocol']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    direction = network_info['nfm']['direction']
-                    if direction == 'Outgoing connection from':
-                        f.write('{} : {} : {} : {} {}:{} -> {}:{}\n'.format(timestamp,
-                            computer_guids[guid]['hostname'],
-                            'outbound',
-                            protocol,
-                            local_ip,
-                            local_port,
-                            remote_ip,
-                            remote_port))
-                    if direction == 'Incoming connection from':
-                        f.write('{} : {} : {} :  {} {}:{} <- {}:{}\n'.format(timestamp,
-                            computer_guids[guid]['hostname'],
-                            'inbound', 
-                            protocol,
-                            local_ip,
-                            local_port,
-                            remote_ip,
-                            remote_port))
-                
-                elif event_type == 'DFC Threat Detected':
-                    network_info = event['network_info']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    f.write('{} : {} DFC: {}:{} - {}:{}\n'.format(timestamp,
-                        computer_guids[guid]['hostname'],
-                        local_ip,
-                        local_port,
-                        remote_ip,
-                        remote_port))
+                    # Search for network-type events
+                    elif event_type == 'NFM':
+                        network_info = event['network_info']
+                        protocol = network_info['nfm']['protocol']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        direction = network_info['nfm']['direction']
+                        if direction == 'Outgoing connection from':
+                            f.write('{} : {} : {} : {} {}:{} -> {}:{}\n'.format(timestamp,
+                                computer_guids[guid]['hostname'],
+                                'outbound',
+                                protocol,
+                                local_ip,
+                                local_port,
+                                remote_ip,
+                                remote_port))
+                        if direction == 'Incoming connection from':
+                            f.write('{} : {} : {} :  {} {}:{} <- {}:{}\n'.format(timestamp,
+                                computer_guids[guid]['hostname'],
+                                'inbound', 
+                                protocol,
+                                local_ip,
+                                local_port,
+                                remote_ip,
+                                remote_port))
                     
-                elif event_type == 'NFM' and 'dirty_url' in str(event):
-                    network_info = event['network_info']
-                    dirty_url= event['network_info']['dirty_url']
-                    protocol = network_info['nfm']['protocol']
-                    local_ip = network_info['local_ip']
-                    local_port = network_info['local_port']
-                    remote_ip = network_info['remote_ip']
-                    remote_port = network_info['remote_port']
-                    direction = network_info['nfm']['direction']
-                    if direction == 'Outgoing connection from':
-                        f.write('{} : {} : {} : {} {}:{} -> {}:{} URL: {} DOMAIN: {}\n'.format(timestamp,
+                    elif event_type == 'DFC Threat Detected':
+                        network_info = event['network_info']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        f.write('{} : {} DFC: {}:{} - {}:{}\n'.format(timestamp,
                             computer_guids[guid]['hostname'],
-                            'outbound',
-                            protocol,
-                            local_ip,
-                            local_port,
-                            remote_ip,
-                            remote_port,
-                            str(dirty_url).replace(".","[.]"),
-                            str(extractDomainFromURL(dirty_url)).replace(".","[.]")))
-                    if direction == 'Incoming connection from':
-                        f.write('{} : {} : {} :  {} {}:{} <- {}:{}\n'.format(timestamp,
-                            computer_guids[guid]['hostname'],
-                            'inbound', 
-                            protocol,
                             local_ip,
                             local_port,
                             remote_ip,
                             remote_port))
-                elif event_type == 'Vulnerable Application Detected' or 'Policy Update':
-                    # pass this for now
-                    pass
-                elif event_type == 'Quarantine Failure':
-                    f.write('{} : {} : Event: {} Severity: {} Disposition: {} File SHA256: {}\n'.format(
-                            timestamp,
-                            computer_guids[guid]['hostname'],
-                            event_type,
-                            event['severity'],
-                            event['file']['disposition'],
-                            event['file']['identity']['sha256']))
-                else:
-                    print(event)
-            # close stream
-            f.close()
-
-                    
-            # except:
-            #     print("exception")
-            #     # server disconnected us
-            #     time.sleep(90)
-            #     pass
+                        
+                    elif event_type == 'NFM' and 'dirty_url' in str(event):
+                        network_info = event['network_info']
+                        dirty_url= event['network_info']['dirty_url']
+                        protocol = network_info['nfm']['protocol']
+                        local_ip = network_info['local_ip']
+                        local_port = network_info['local_port']
+                        remote_ip = network_info['remote_ip']
+                        remote_port = network_info['remote_port']
+                        direction = network_info['nfm']['direction']
+                        if direction == 'Outgoing connection from':
+                            f.write('{} : {} : {} : {} {}:{} -> {}:{} URL: {} DOMAIN: {}\n'.format(timestamp,
+                                computer_guids[guid]['hostname'],
+                                'outbound',
+                                protocol,
+                                local_ip,
+                                local_port,
+                                remote_ip,
+                                remote_port,
+                                str(dirty_url).replace(".","[.]"),
+                                str(extractDomainFromURL(dirty_url)).replace(".","[.]")))
+                        if direction == 'Incoming connection from':
+                            f.write('{} : {} : {} :  {} {}:{} <- {}:{}\n'.format(timestamp,
+                                computer_guids[guid]['hostname'],
+                                'inbound', 
+                                protocol,
+                                local_ip,
+                                local_port,
+                                remote_ip,
+                                remote_port))
+                    elif event_type == 'Vulnerable Application Detected' or 'Policy Update':
+                        # pass this for now
+                        pass
+                    elif event_type == 'Quarantine Failure':
+                        f.write('{} : {} : Event: {} Severity: {} Disposition: {} File SHA256: {}\n'.format(
+                                timestamp,
+                                computer_guids[guid]['hostname'],
+                                event_type,
+                                event['severity'],
+                                event['file']['disposition'],
+                                event['file']['identity']['sha256']))
+                    else:
+                        print(event)
+                # close stream
+                f.close()
+            except:
+                # server disconnected us
+                time.sleep(90)
+                pass
+    except:
+    	pass
     finally:
         print("[+] Done")
 
