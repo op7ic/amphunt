@@ -60,11 +60,11 @@ def checkAPITimeout(headers, request):
                     if(headers['Status'] == "200 OK"):
                         # We are close to the border, in theory 429 error code should never trigger if we capture this event
                         # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                        time.sleep((int(headers['X-RateLimit-Reset'])+25))
                     if(headers['Status'] == "429 Too Many Requests"):
                         # Triggered too many request, we need to sleep before it continues
                         # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
+                        time.sleep((int(headers['X-RateLimit-Reset'])+25))
             elif '503 Service Unavailable' in str(headers):
                 time.sleep(60)
             else: # we got some new error
