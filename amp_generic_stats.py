@@ -1,174 +1,204 @@
+#!/usr/bin/env python3
+"""
+Script Name: amp_generic_stats.py
+Author: Jerzy 'Yuri' Kramarz (op7ic)
+Copyright: See LICENSE file
+Github: https://github.com/op7ic/amphunt
+
+amp_generic_stats.py - Generate statistics for AMP environment
+
+This script generates comprehensive statistics about your AMP environment,
+including event counts by type, threat detections, and system activity.
+
+Usage:
+	python amp_generic_stats.py -c <config_file> [--csv output.csv]
+"""
+
 import sys
-import requests
-import configparser
-import time
-import gc
-from multiprocessing.pool import ThreadPool
-
-# Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-# Containers for GUIDs
-computer_guids = {}
-
-def extractGUID(data):
-    """ Extract GUIDs from data structure and store them in computer_guids variable"""
-    for entry in data:
-        connector_guid = entry['connector_guid']
-        hostname = entry['hostname']
-        computer_guids.setdefault(connector_guid, {'hostname':hostname})
-
-def checkAPITimeout(headers, request):
-    """Ensure we don't cross API limits, sleep if we are approaching close to limits"""
-    if str(request.status_code) == '200':
-        # Extract headers (these are also returned)
-        headers=request.headers
-        # check if we correctly got headers
-        if headers:
-            # We stop on 45 due to number of threads working
-            if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
-                if(int(headers['X-RateLimit-Remaining']) < 45):
-                    if(headers['Status'] == "200 OK"):
-                        # We are close to the border, in theory 429 error code should never trigger if we capture this event
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-                    if(headers['Status'] == "429 Too Many Requests"):
-                        # Triggered too many request, we need to sleep before it continues
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-            elif '503 Service Unavailable' in str(headers):
-                time.sleep(60)
-            else: # we got some new error
-                time.sleep(45)
-        else:
-            # no headers, request probably failed
-            time.sleep(45)
-    elif str(request.status_code) == '404':
-        # 404 - this could mean event timeline or event does no longer exists
-        time.sleep(45)
-        pass
-    elif str(request.status_code) == '503':
-        # server sarted to block us
-        time.sleep(90)
-        pass
-    else:
-        # in any other case, sleep
-        time.sleep(90)
-        pass
+import argparse
+from collections import defaultdict
+from datetime import datetime
+from amp_client import AMPClient, Config
+from amp_client.models import EventType
+from amp_client.utils import CSVExporter
 
 
-# Validate a command line parameter was provided
-if len(sys.argv) < 2:
-    sys.exit('Usage: <config file.txt>\n %s' % sys.argv[0])
+def main():
+	parser = argparse.ArgumentParser(description='Generate AMP environment statistics')
+	parser.add_argument('-c', '--config', required=True, help='Configuration file path')
+	parser.add_argument('--csv', help='Export results to CSV file')
+	parser.add_argument('--limit', type=int, help='Limit number of computers to process')
+	args = parser.parse_args()
 
-# Parse config to extract API keys
-config = configparser.ConfigParser()
-config.read(sys.argv[1])
-client_id = config['settings']['client_id']
-api_key = config['settings']['api_key']
-domainIP = config['settings']['domainIP']
+	# Load configuration
+	config = Config.from_file(args.config)
 
-#Print header for CSV 
-print('date,guid,hostname,Vulnerable Application Detected,NFM,File Executed,File Created,File Moved,Threat Quarantined,Threat Detected,Quarantine Failure,Malicious Activity Detection,Execution Blocked,Executed malware') 
+	# Create client
+	with AMPClient(config) as client:
+		# Get all computers
+		if not args.csv:
+			print('[+] Fetching computers...')
+		computers = list(client.computers.list())
 
-try:
-    # Creat session object
-    # http://docs.python-requests.org/en/master/user/advanced/
-    # Using a session object gains efficiency when making multiple requests
-    session = requests.Session()
-    session.auth = (client_id, api_key)
+		if args.limit:
+			computers = computers[:args.limit]
 
-    # Define URL for extraction of all computers
-    computers_url='https://{}/v1/computers'.format(domainIP)
-    response = session.get(computers_url, verify=False)
-    # Get Headers
-    headers=response.headers
-    # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    checkAPITimeout(headers, response)
-    # Decode JSON response
-    response_json = response.json()
-    #Page 1 extract all GUIDs
-    extractGUID(response_json['data'])
+		if not args.csv:
+			print(f'[+] Total computers found: {len(computers)}')
+			# Print CSV header
+			print('\ndate,guid,hostname,Vulnerable Application Detected,NFM,File Executed,'
+				  'File Created,File Moved,Threat Quarantined,Threat Detected,'
+				  'Quarantine Failure,Malicious Activity Detection,Execution Blocked,Executed malware')
 
-    # Handle paginated pages and extract computer GUIDs
-    if('next' in response_json['metadata']['links']):
-        while 'next' in response_json['metadata']['links']:
-            next_url = response_json['metadata']['links']['next']
-            response = session.get(next_url, verify=False)
-            headers=response.headers
-            # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            checkAPITimeout(headers, response)
-            # Extract
-            response_json = response.json()
-            extractGUID(response_json['data'])
-            
-    for guid in computer_guids:
-        # Extract trajectory of computers based on their guid
-        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-        trajectory_response = session.get(trajectory_url, verify=False)
+		# Collect all stats for CSV export
+		all_stats = []
 
-        headers=trajectory_response.headers
-        # Ensure we don't cross API limits, sleep if we are approaching close to limits
-        checkAPITimeout(headers, trajectory_response)
-        # define variables which will be applicable per each GUID
-        vulnerable=0
-        nfm=0
-        executed=0
-        create=0
-        moved=0
-        threat_q=0
-        threat_d=0
-        quarantine_fail=0
-        malicious_activity=0
-        exec_blocked=0
-        exec_malware=0
-        try:
-            trajectory_response_json = trajectory_response.json()
-            events = trajectory_response_json['data']['events']
-            for event in events:
-                event_type = event['event_type']
-                date = event['date'] 
+		# Process each computer
+		for computer in computers:
+			try:
+				# Get trajectory
+				trajectory = client.computers.get_trajectory(computer.connector_guid)
 
-                #filter by specific event type  
-                if event_type == 'Vulnerable Application Detected':
-                    vulnerable+=1
-                if event_type == 'NFM':
-                    nfm+=1
-                if event_type == 'Executed by':
-                    executed+=1
-                if event_type == 'Created by':
-                    create+=1
-                if event_type == 'Moved by':
-                    moved+=1
-                if event_type == 'Threat Quarantined':
-                    threat_q+=1
-                if event_type == 'Threat Detected':
-                    threat_d+=1
-                if event_type == 'Quarantine Failure':
-                    quarantine_fail+=1
-                if event_type == 'Malicious Activity Detection':
-                    malicious_activity+=1
-                if event_type == 'Execution Blocked':
-                    exec_blocked+=1
-                if event_type == 'Executed Malware':
-                    exec_malware+=1
-            print("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
-                date,
-                guid,
-                computer_guids[guid]['hostname'],
-                vulnerable,
-                nfm,
-                executed,
-                create,
-                moved,
-                threat_q,
-                threat_d,
-                quarantine_fail,
-                malicious_activity,
-                exec_blocked,
-                exec_malware))
-        except:
-            pass
-finally:
-    gc.collect()
+				# Initialize counters
+				stats = defaultdict(int)
+				last_event_date = None
+
+				# Count events by type
+				for event in trajectory.events:
+					event_type = event.event_type
+					last_event_date = event.timestamp
+
+					# Map event types to our categories
+					if event_type == 'Vulnerable Application Detected':
+						stats['vulnerable'] += 1
+					elif event_type == 'NFM':
+						stats['nfm'] += 1
+					elif 'Executed' in event_type and 'Blocked' not in event_type:
+						stats['executed'] += 1
+					elif 'Created' in event_type:
+						stats['created'] += 1
+					elif 'Moved' in event_type:
+						stats['moved'] += 1
+					elif event_type == 'Threat Quarantined':
+						stats['threat_quarantined'] += 1
+					elif event_type == 'Threat Detected':
+						stats['threat_detected'] += 1
+					elif event_type == 'Quarantine Failure':
+						stats['quarantine_fail'] += 1
+					elif event_type == 'Malicious Activity Detection':
+						stats['malicious_activity'] += 1
+					elif event_type == 'Execution Blocked':
+						stats['exec_blocked'] += 1
+					elif event_type == 'Executed Malware':
+						stats['exec_malware'] += 1
+
+				# Use last event date or current time
+				date_str = last_event_date.strftime("%Y-%m-%d %H:%M:%S") if last_event_date else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+				# Print stats (only in non-CSV mode)
+				if not args.csv:
+					print(f"{date_str},{computer.connector_guid},{computer.hostname},"
+						  f"{stats['vulnerable']},{stats['nfm']},{stats['executed']},"
+						  f"{stats['created']},{stats['moved']},{stats['threat_quarantined']},"
+						  f"{stats['threat_detected']},{stats['quarantine_fail']},"
+						  f"{stats['malicious_activity']},{stats['exec_blocked']},{stats['exec_malware']}")
+
+				# Store for CSV export
+				all_stats.append({
+					'date': date_str,
+					'guid': computer.connector_guid,
+					'hostname': computer.hostname,
+					'vulnerable': stats['vulnerable'],
+					'nfm': stats['nfm'],
+					'executed': stats['executed'],
+					'created': stats['created'],
+					'moved': stats['moved'],
+					'threat_quarantined': stats['threat_quarantined'],
+					'threat_detected': stats['threat_detected'],
+					'quarantine_fail': stats['quarantine_fail'],
+					'malicious_activity': stats['malicious_activity'],
+					'exec_blocked': stats['exec_blocked'],
+					'exec_malware': stats['exec_malware']
+				})
+
+			except Exception as e:
+				print(f"Error processing {computer.hostname}: {e}", file=sys.stderr)
+				continue
+
+		# Generate summary statistics
+		if not args.csv:
+			print("\n[+] Summary Statistics:")
+
+		# Total events by category
+		total_stats = defaultdict(int)
+		for stat in all_stats:
+			for key, value in stat.items():
+				if key not in ['date', 'guid', 'hostname']:
+					total_stats[key] += value
+
+		if not args.csv:
+			print(f"\n\tTotal Vulnerable Applications: {total_stats['vulnerable']}")
+			print(f"\tTotal Network Events (NFM): {total_stats['nfm']}")
+			print(f"\tTotal Files Executed: {total_stats['executed']}")
+			print(f"\tTotal Files Created: {total_stats['created']}")
+			print(f"\tTotal Files Moved: {total_stats['moved']}")
+			print(f"\tTotal Threats Quarantined: {total_stats['threat_quarantined']}")
+			print(f"\tTotal Threats Detected: {total_stats['threat_detected']}")
+			print(f"\tTotal Quarantine Failures: {total_stats['quarantine_fail']}")
+			print(f"\tTotal Malicious Activity: {total_stats['malicious_activity']}")
+			print(f"\tTotal Executions Blocked: {total_stats['exec_blocked']}")
+			print(f"\tTotal Malware Executed: {total_stats['exec_malware']}")
+
+		# Top computers by threat activity
+		threat_computers = []
+		for stat in all_stats:
+			threat_score = (stat['threat_detected'] + stat['threat_quarantined'] + 
+						   stat['malicious_activity'] + stat['exec_malware'])
+			if threat_score > 0:
+				threat_computers.append((stat['hostname'], threat_score))
+
+		if threat_computers and not args.csv:
+			print("\n\t[+] Top 10 Computers by Threat Activity:")
+			for hostname, score in sorted(threat_computers, key=lambda x: x[1], reverse=True)[:10]:
+				print(f"\t\t{hostname}: {score} threat events")
+
+		# Export to CSV if requested
+		if args.csv and all_stats:
+
+			# Convert to format for CSVExporter
+			export_events = []
+			for stat in all_stats:
+				export_events.append({
+					'date': stat['date'],
+					'connector_guid': stat['guid'],
+					'hostname': stat['hostname'],
+					'Vulnerable Application Detected': stat['vulnerable'],
+					'NFM': stat['nfm'],
+					'File Executed': stat['executed'],
+					'File Created': stat['created'],
+					'File Moved': stat['moved'],
+					'Threat Quarantined': stat['threat_quarantined'],
+					'Threat Detected': stat['threat_detected'],
+					'Quarantine Failure': stat['quarantine_fail'],
+					'Malicious Activity Detection': stat['malicious_activity'],
+					'Execution Blocked': stat['exec_blocked'],
+					'Executed malware': stat['exec_malware']
+				})
+
+			CSVExporter.export_events(
+				export_events,
+				args.csv,
+				fields=['date', 'connector_guid', 'hostname', 
+						'Vulnerable Application Detected', 'NFM', 'File Executed',
+						'File Created', 'File Moved', 'Threat Quarantined',
+						'Threat Detected', 'Quarantine Failure', 
+						'Malicious Activity Detection', 'Execution Blocked',
+						'Executed malware']
+			)
+
+		if not args.csv:
+			print("\n[+] Done")
+
+
+if __name__ == "__main__":
+	main()

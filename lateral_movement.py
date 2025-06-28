@@ -1,160 +1,218 @@
-# This script is based on https://github.com/CiscoSecurity/amp-04-sha256-to-network-connections/blob/master/sha256_to_network_connections.py
+#!/usr/bin/env python3
+"""
+Script Name: lateral_movement.py
+Author: Jerzy 'Yuri' Kramarz (op7ic)
+Copyright: See LICENSE file
+Github: https://github.com/op7ic/amphunt
+
+lateral_movement.py - Detect potential lateral movement activity
+
+This script identifies potential lateral movement by monitoring specific ports
+commonly used for remote access and administration (SMB, RDP, WinRM, RPC).
+
+Usage:
+	python lateral_movement.py -c/--config <config_file> [--csv output.csv]
+"""
+
 import sys
-import requests
-import configparser
-import time
-import gc
-from urllib.parse import urlparse
-
-# Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-def extractGUID(data):
-    """ Extract GUIDs from data structure and store them in computer_guids variable"""
-    for entry in data:
-        connector_guid = entry['connector_guid']
-        hostname = entry['hostname']
-        computer_guids.setdefault(connector_guid, {'hostname':hostname})
-
-def checkAPITimeout(headers, request):
-    """Ensure we don't cross API limits, sleep if we are approaching close to limits"""
-    if str(request.status_code) == '200':
-        # Extract headers (these are also returned)
-        headers=request.headers
-        # check if we correctly got headers
-        if headers:
-            # We stop on 45 due to number of threads working
-            if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
-                if(int(headers['X-RateLimit-Remaining']) < 45):
-                    if(headers['Status'] == "200 OK"):
-                        # We are close to the border, in theory 429 error code should never trigger if we capture this event
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-                    if(headers['Status'] == "429 Too Many Requests"):
-                        # Triggered too many request, we need to sleep before it continues
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-            elif '503 Service Unavailable' in str(headers):
-                time.sleep(60)
-            else: # we got some new error
-                time.sleep(45)
-        else:
-            # no headers, request probably failed
-            time.sleep(45)
-    elif str(request.status_code) == '404':
-        # 404 - this could mean event timeline or event does no longer exists
-        time.sleep(45)
-        pass
-    elif str(request.status_code) == '503':
-        # server sarted to block us
-        time.sleep(90)
-        pass
-    else:
-        # in any other case, sleep
-        time.sleep(90)
-        pass
+import argparse
+from collections import defaultdict
+from datetime import datetime
+from amp_client import AMPClient, Config
+from amp_client.utils import CSVExporter, LateralMovementDetector, OutputFormatter
 
 
-# Validate a command line parameter was provided
-if len(sys.argv) < 2:
-    sys.exit('Usage: <config file.txt>\n %s' % sys.argv[0])
+# Lateral movement ports and their descriptions
+LATERAL_MOVEMENT_PORTS = {
+	139: 'SMB (NetBIOS)',
+	445: 'SMB',
+	3389: 'RDP',
+	5985: 'WINRM - HTTP',
+	5986: 'WINRM - HTTPS',
+	135: 'WMIC/SC (RPC)'
+}
 
-# Parse config to extract API keys
-config = configparser.ConfigParser()
-config.read(sys.argv[1])
-client_id = config['settings']['client_id']
-api_key = config['settings']['api_key']
-domainIP = config['settings']['domainIP']
 
-# Containers for output
-computer_guids = {}
+def analyze_connection(event, hostname):
+	"""Analyze a network connection for lateral movement indicators"""
+	details = event.network_info
+	if not details:
+		return None
 
-try:
+	direction_str = details.get('nfm', {}).get('direction', '')
+	local_port = details.get('local_port')
+	remote_port = details.get('remote_port')
 
-    # Creat session object
-    # http://docs.python-requests.org/en/master/user/advanced/
-    # Using a session object gains efficiency when making multiple requests
-    session = requests.Session()
-    session.auth = (client_id, api_key)
+	# Check for lateral movement based on direction and ports
+	if 'Outgoing' in direction_str and remote_port in LATERAL_MOVEMENT_PORTS:
+		return {
+			'type': 'outbound',
+			'service': LATERAL_MOVEMENT_PORTS[remote_port],
+			'port': remote_port,
+			'direction_string': direction_str
+		}
+	elif 'Incoming' in direction_str and local_port in LATERAL_MOVEMENT_PORTS:
+		return {
+			'type': 'inbound',
+			'service': LATERAL_MOVEMENT_PORTS[local_port],
+			'port': local_port,
+			'direction_string': direction_str
+		}
 
-    # Define URL for extraction of all computers
-    computers_url='https://{}/v1/computers'.format(domainIP)
-    # Define response object to extract all computers
-    response = session.get(computers_url, verify=False)
-    # Get headers from request
-    headers=response.headers
-    # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    checkAPITimeout(headers, response)
-        
-    # Decode first JSON response
-    response_json = response.json()
-    #Page 1 extract all GUIDs
-    extractGUID(response_json['data'])
-    # Handle paginated pages and extract computer GUIDs
-    if('next' in response_json['metadata']['links']):
-        while 'next' in response_json['metadata']['links']:
-            next_url = response_json['metadata']['links']['next']
-            response = session.get(next_url)
-            headers=response.headers
-            checkAPITimeout(headers, response)
-            # Extract GUID
-            response_json = response.json()
-            extractGUID(response_json['data'])
+	return None
 
-    print('[+] Total computers found: {}'.format(len(computer_guids)))
 
-    for guid in computer_guids:
-        print('\n\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
-        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-        try:
-            trajectory_response = session.get(trajectory_url, verify=False)
-            trajectory_response_json = trajectory_response.json()
-            headers=trajectory_response.headers
-            # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            checkAPITimeout(headers, trajectory_response)
-            try:
-                events = trajectory_response_json['data']['events']
-                for event in events:
-                    event_type = event['event_type']
-                    timestamp = event['date']
-                    if event_type == 'NFM':
-                        network_info = event['network_info']
-                        protocol = network_info['nfm']['protocol']
-                        local_ip = network_info['local_ip']
-                        local_port = network_info['local_port']
-                        remote_ip = network_info['remote_ip']
-                        remote_port = network_info['remote_port']
-                        direction = network_info['nfm']['direction']
-                        if direction == 'Outgoing connection from' and remote_port == 445 or remote_port == 139:
-                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound SMB',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port == 445 or local_port == 139:
-                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound SMB',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Outgoing connection from' and remote_port == 3389:
-                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound RDP',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port == 3389:
-                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound RDP',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Outgoing connection from' and remote_port == 5985:
-                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WINRM - HTTP',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port == 5985:
-                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WINRM - HTTP',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Outgoing connection from' and remote_port == 5986:
-                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WINRM - HTTPS',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port == 5986:
-                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WINRM - HTTPS',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Outgoing connection from' and remote_port == 135:
-                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound WMIC/SC (RPC)',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from' and local_port == 135:
-                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound WMIC/SC (RPC)',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                            
-            except:
-                # events array not received - we just pass
-                pass
-        except:
-            # this would most likley be just connection timeout 
-            time.sleep(45)
-            pass
+def main():
+	parser = argparse.ArgumentParser(description='Detect lateral movement activity in AMP')
+	parser.add_argument('-c', '--config', required=True, help='Configuration file path')
+	parser.add_argument('--csv', help='Export results to CSV file')
+	parser.add_argument('--limit', type=int, help='Limit number of computers to process')
+	parser.add_argument('--summary', action='store_true', help='Show summary statistics')
+	args = parser.parse_args()
 
-finally:
-    gc.collect()
-    print("[+] Done")
+	# Load configuration
+	config = Config.from_file(args.config)
+
+	# Create client
+	with AMPClient(config) as client:
+		# Get all computers
+		print('[+] Fetching computers...')
+		computers = list(client.computers.list())
+
+		if args.limit:
+			computers = computers[:args.limit]
+
+		print(f'[+] Total computers found: {len(computers)}')
+
+		# Track lateral movement events
+		all_events = []
+		lateral_movement_stats = defaultdict(lambda: {
+			'outbound': defaultdict(int),
+			'inbound': defaultdict(int)
+		})
+
+		# Process each computer
+		for computer in computers:
+			print(f'\n\t[+] Querying: {computer.hostname} - {computer.connector_guid}')
+
+			try:
+				# Get trajectory
+				trajectory = client.computers.get_trajectory(computer.connector_guid)
+
+				# Look for lateral movement indicators
+				lm_events = 0
+				for event in trajectory.events:
+					if str(event.event_type) == 'NFM' and event.network_info:
+						analysis = analyze_connection(event, computer.hostname)
+
+						if analysis:
+							details = event.network_info
+							timestamp = event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+							protocol = details.get('nfm', {}).get('protocol', 'unknown')
+							local_ip = details.get('local_ip', 'unknown')
+							local_port = details.get('local_port', 'unknown')
+							remote_ip = details.get('remote_ip', 'unknown')
+							remote_port = details.get('remote_port', 'unknown')
+
+							# Track statistics
+							lateral_movement_stats[computer.hostname][analysis['type']][analysis['service']] += 1
+
+							# Display event
+							if analysis['type'] == 'outbound':
+								print(f'\t\t\t {timestamp} : outbound {analysis["service"]} : '
+									  f'{computer.hostname} : {protocol} {local_ip}:{local_port} '
+									  f'-> {remote_ip}:{remote_port}')
+							else:
+								print(f'\t\t\t {timestamp} : inbound {analysis["service"]} : '
+									  f'{computer.hostname} : {protocol} {local_ip}:{local_port} '
+									  f'<- {remote_ip}:{remote_port}')
+
+							# Store for CSV export
+							all_events.append({
+								'timestamp': timestamp,
+								'hostname': computer.hostname,
+								'direction': analysis['type'],
+								'service': analysis['service'],
+								'protocol': protocol,
+								'local_ip': local_ip,
+								'local_port': local_port,
+								'remote_ip': remote_ip,
+								'remote_port': remote_port
+							})
+							lm_events += 1
+
+				if lm_events == 0:
+					print(f"\t\t [-] No lateral movement indicators found")
+
+			except Exception as e:
+				print(f"\t\t [!] Error processing {computer.hostname}: {e}")
+				continue
+
+		# Show summary if requested
+		if args.summary and lateral_movement_stats:
+			print("\n[+] Lateral Movement Summary:")
+
+			# Sort by total events
+			sorted_computers = sorted(
+				lateral_movement_stats.items(),
+				key=lambda x: sum(sum(port_counts.values()) 
+								 for port_counts in x[1].values()),
+				reverse=True
+			)
+
+			for hostname, stats in sorted_computers[:20]:
+				total_events = sum(sum(port_counts.values()) 
+								 for port_counts in stats.values())
+				if total_events > 0:
+					print(f"\n\t{hostname} ({total_events} total events):")
+
+					# Outbound connections
+					if stats['outbound']:
+						print("\t  Outbound:")
+						for service, count in sorted(stats['outbound'].items(), 
+													key=lambda x: x[1], 
+													reverse=True):
+							print(f"\t    {service}: {count}")
+
+					# Inbound connections
+					if stats['inbound']:
+						print("\t  Inbound:")
+						for service, count in sorted(stats['inbound'].items(), 
+													key=lambda x: x[1], 
+													reverse=True):
+							print(f"\t    {service}: {count}")
+
+		# Export to CSV if requested
+		if args.csv and all_events:
+			print(f'\n[+] Exporting {len(all_events)} events to {args.csv}...')
+
+			# Convert to format for CSVExporter
+			export_events = []
+			for event in all_events:
+				export_events.append({
+					'date': event['timestamp'],
+					'hostname': event['hostname'],
+					'event_type': f'Lateral Movement - {event["service"]}',
+					'direction': event['direction'],
+					'service': event['service'],
+					'protocol': event['protocol'],
+					'local_ip': event['local_ip'],
+					'local_port': event['local_port'],
+					'remote_ip': event['remote_ip'],
+					'remote_port': event['remote_port']
+				})
+
+			CSVExporter.export_events(
+				export_events,
+				args.csv,
+				fields=['date', 'hostname', 'event_type', 'direction', 'service',
+						'protocol', 'local_ip', 'local_port', 'remote_ip', 'remote_port']
+			)
+			print(f'[+] CSV export complete: {args.csv}')
+
+		print(f"\n[+] Total lateral movement events found: {len(all_events)}")
+		print("[+] Done")
+
+
+if __name__ == "__main__":
+	main()

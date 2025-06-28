@@ -1,401 +1,643 @@
 # amphunt
 
-This repository contains basic threat hunting scripts for [AMP4E](https://www.cisco.com/c/en/us/products/security/advanced-malware-protection/index.html) API. Scripts are heavily based on already existing code published by [Cisco Security Team](https://github.com/CiscoSecurity/) with some optimization towards handling file inputs, csv output and pagination. Known Windows SHA256 hashes were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository and can be used to hunt for potentially bad commands such as ```net user admin /add``` which rely on built-in Windows tool. In addition, various GitHub repositories with known hacking toolkits, such as [sqlmap](https://github.com/sqlmapproject/sqlmap), [LaZagne](https://github.com/AlessandroZ/LaZagne) were also hashed to provide the ability for hunting on both current and past versions of these tools. Please be aware that each script takes at least a config file as argument. Sample config file [here](config.txt).
+This repository contains advanced threat hunting scripts for [Cisco Secure Endpoint](https://www.cisco.com/site/us/en/products/security/endpoint-security/secure-endpoint/index.html) API. The scripts leverage the AMP API to hunt for threats, analyze endpoint behavior, and detect potential compromises across the environment using API version 0 and 1.
 
-## timeliner.py
+## Overview
 
-This script will take config and output folder as parameters and will simply extract timeline for all endpoints. Timeline files are written to individual text file for each endpoint for ease of grepping. 
+The scripts are built on top of a Python library (`amp_client`) that provides:
+- **Rate Limiting**: Automatic API rate limit management
+- **Connection Pooling**: Improved performance through connection reuse
+- **Response Caching**: Reduces redundant API calls
+- **Error Handling**: Graceful degradation and automatic retries
 
-How to invoke:
-```
-python3 timeliner.py --config <config file.txt> --output <output folder>
-```
+Known Windows SHA256 hashes were taken from [WINFINGER](https://github.com/op7ic/WINFINGER) repository and can be used to hunt for potentially bad commands such as ```net user admin /add``` which rely on built-in Windows tools. Various GitHub repositories with known hacking toolkits are also hashed to provide detection capabilities.
 
-Extracting useful intel:
-```
-- grep for 'Created by' to find all newly created files and their hashes
-- grep for 'Executed by' to find all executed files
-- grep for 'Moved by' to find files moved 
-- grep for 'Threat' to find detected or quarantined threats
-- grep for 'NFM' to find all network connections
-- grep for 'Unknown' to find all unknown files
-- grep for '\.doc\|\.xls\|\.pdf\|\.ppt' to find documents
-- use 'grep -A 10 -B 10 -i "cmd\.exe\|rundll32\.exe\|powershell\.exe" *' to see 10 lines before and after execution of cmd/rundll32/powershell
+## Installation
+
+1. **Clone the repository:**
+```bash
+git clone https://github.com/op7ic/amphunt.git
+cd amphunt
 ```
 
-## hash2processarg.py
-
-This script takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer name with matching processes along with the executed command line arguments orignating from these processes. This method can be used to quickly scan for legitimate binaries (i.e. certutil) in order to see process arguments or to hunt for malicious processes launched by specific hash. Please edit [config.txt](config.txt) and add appropriate API keys.
-
-How to invoke:
-```
-python3 hash2processarg.py <config file.txt> <hashset/cmd.txt>
+2. **Install the AMP client library:**
+```bash
+pip install -e .
 ```
 
-Sample output:
-```
-[+] 2020-04-01T09:46:41+00:00 : testbox.amp.local Process name: powershell.exe args: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.EXE restart-computer -force
-```
+3. **Configure your API credentials:**
 
-## hash2processarg2csv.py
-
-This is a reimplementation of [hash2processarg.py](hash2processarg.py) file with changed output format writing CSV which can be easily redirected to output file.
-
-How to invoke:
-```
-python3 hash2processarg2csv.py <config file.txt> <hashset/cmd.txt> > output.csv
+Create a `config.txt` file (see [sample](config.txt)):
+```ini
+[settings]
+client_id = YOUR_CLIENT_ID
+api_key = YOUR_API_KEY
+region = nam # nam, eu, or apjc
 ```
 
-Sample output:
-```
-date,guid,hostname,sha256,Parent sha256,file_name,arguments
-<date>,<guid>,<hostname>,<sha256>,<parent>,<filename>,<command line arguments>
-<date>,<guid>,<hostname>,<sha256>,<parent>,<filename>,<command line arguments>
-<date>,<guid>,<hostname>,<sha256>,<parent>,<filename>,<command line arguments>
-```
-
-## hash2connection.py
-
-This script takes a list of SHA256 hashes as input (sample can be found in [hashset](hashset/) directory) and prints every computer with matching processes and where these processes communicates to. Please edit [config.txt](config.txt) and add appropriate API keys.
-
-
-How to invoke:
-```
-python3 hash2connection.py <config file.txt> <hashset/cmd.txt>
+Or use environment variables:
+```bash
+export AMP_CLIENT_ID="your_client_id"
+export AMP_API_KEY="your_api_key"
+export AMP_REGION="nam"  # nam, eu, or apjc
 ```
 
-## hash2connection2csv.py
+## AMP API Endpoints
 
-This is a reimplementation of [hash2connection.py](hash2connection.py) file with changed output format writing CSV which can be easily redirected to output file.
+Choose the appropriate endpoint for your region:
+- `nam` - North America (`api.amp.cisco.com`)
+- `eu` - Europe (`api.eu.amp.cisco.com`)
+- `apjc` - Asia Pacific, Japan, and China (`api.apjc.amp.cisco.com`)
 
+## Script Documentation
 
-How to invoke:
-```
-python3 hash2connection2csv.py <config file.txt> <hashset/cmd.txt>
-```
-Sample output:
-```
-date,guid,hostname,type,SHA256,source_ip,source_port,destination_ip,destination_port,direction,domain,URL
-<date>,<guid>,<hostname>,<type of telemetry>,<sha256>,<source IP>,<source port>,<destination IP>,<destination port>,<inbound/outbound>,<domain>,<URL>
-<date>,<guid>,<hostname>,<type of telemetry>,<sha256>,<source IP>,<source port>,<destination IP>,<destination port>,<inbound/outbound>,<domain>,<URL>
-```
+### Timeline Analysis
 
-## allconnections.py
+#### timeliner.py
+Extracts complete timeline of events for all endpoints, writing individual files for each endpoint.
 
-This script dumps all connections recorded in AMP against all hosts. Please edit [config.txt](config.txt) and add appropriate API keys.
-
-How to invoke:
-```
-python3 allconnections.py <config file.txt>
+**Usage:**
+```bash
+python3 timeliner.py -c <config file> -o <output folder>
+# or
+python3 timeliner.py -c config.txt -o ./timelines/
 ```
 
-Sample output:
-```
-Host: testbox.amp.local TCP 99.99.99.99:56846 -> 18.225.36.18:80                       
-```
+**Analysis tips:**
+```bash
+# Find newly created files
+grep 'Created by' *.txt
 
-## allconnections2csv.py
+# Find executed files
+grep 'Executed by' *.txt
 
-This is a reimplementation of [allconnections.py](allconnections.py) file with changed output format writing CSV which can be easily redirected to output file.
+# Find threats
+grep 'Threat' *.txt
 
-How to invoke:
-```
-python3 allconnections2csv.py <config file.txt> > output.csv
-```
+# Find network connections
+grep 'NFM' *.txt
 
-Sample output:
-```
-date,guid,hostname,telemetry source,source_ip,source_port,destination,destination port,direction,domain,URL
-<date>,<guid>,<hostname>,<telemetry>,<source IP>,<source port>,<destination IP>,<destination port>,<inbound/outbound>,<domain>,<URL>
-<date>,<guid>,<hostname>,<telemetry>,<source IP>,<source port>,<destination IP>,<destination port>,<inbound/outbound>,<domain>,<URL>
-```
+# Find document activity
+grep -E '\.doc|\.xls|\.pdf|\.ppt' *.txt
 
-## dumpallURL.py
-
-This script dumps all accessed URLs for all hosts. Please edit [config.txt](config.txt) and add appropriate API keys.
-
-How to invoke:
-```
-python3 dumpallURL.py <config file.txt>
+# Context around suspicious processes
+grep -A 10 -B 10 -i "cmd\.exe\|rundll32\.exe\|powershell\.exe" *.txt
 ```
 
-Sample output:
-```
-Host: testbox.amp.local URL: http://mirrorlist.centos.org/?release=7&arch=x86_64&repo=extras&infra=stock
-```
+#### surround.py
+Generates timeline for a specific computer by its UUID.
 
-## dumpallURL2csv.py
-
-This is a reimplementation of [dumpallURL.py](dumpallURL.py) file with changed output format writing CSV which can be easily redirected to output file.
-
-How to invoke:
-```
-python3 dumpallURL2csv.py <config file.txt> > output.csv
+**Usage:**
+```bash
+python3 surround.py -c config.txt -o ./output/ -u <computer_uuid>
 ```
 
-Sample output:
-```
-date,guid,hostname,type,source ip,source port,destination ip,destination port,direction,domain,URL
-<date>,<guid>,<hostname>,<type>,<source ip>,<source port>,<destination ip>,<destination port>,<direction>,<domain>,<URL>
-```
+### Hash Analysis
 
-## multikeyword_search.py
+#### hash2processarg.py
+Searches for processes matching specific SHA256 hashes and retrieves their command-line arguments.
 
-This script takes a config file and list with keywords/IPs/SHA256 hashes (one per line) and searches for processes/commands/network connections related to these keywords. Sample keywords can be found in [keywords](keywordfiles/) folder.
-
-How to invoke:
-```
-python3 multikeyword_search.py <config file.txt> <keyword file>
+**Usage:**
+```bash
+python3 hash2processarg.py -c config.txt hashset/windows-binaries/cmd.exe.txt
+python3 hash2processarg.py -c config.txt hashes.txt --csv output.csv
 ```
 
-Sample keyword file:
+**Sample output:**
 ```
-winword.exe
-explorer.exe
-192.168.20.2
-explorer.exe
-rundll32.exe
-notepad.exe
-notepad64
-ransom
-[SHA256 hash]
+[+] Process SHA256 : abc123... Child SHA256: def456...
+[+] 2024-01-01 10:00:00 : hostname Process name: cmd.exe args: /c whoami
 ```
 
-## lateral_movement.py
+#### hash2connection.py
+Finds network connections associated with specific file hashes.
 
-This script tracks connections to RDP/WMIC/WINRM/SMB.
-
-How to invoke:
-```
-python3 lateral_movement.py <config file.txt>
-```
-
-## fresh_vulnerabilities2csv.py
-
-This script dumps all vulnerabilities observed across all trajectories (with 500 events limit) and prints it in CSV format. It will print out information about oldest CVE/CVSS as well as averaged CVSS score, along with other information.
-
-How to invoke:
-```
-python3 all_vulnerabilities2csv.py <config file.txt> > output.csv
+**Usage:**
+```bash
+python3 hash2connection.py -c config.txt hashset/hacking-tools/mimikatz.txt
+python3 hash2connection.py -c config.txt suspicious_hashes.txt --csv connections.csv
 ```
 
-Sample output:
-```
-date,guid,hostname,type,severity,file_name,file_sha256,product_name,oldest_CVE,oldest_version_impacted,oldest_cvss_score,average_cvss,all_CVE,oldest_reference_url
-<date>,<guid>,<hostname>,<type>,<severity>,<file_name>,<file_sha256>,<product_name>,<oldest_CVE>,<oldest_version_impacted>,<oldest_cvss_score>,average_cvss,all_CVE,oldest_reference_url
-```
+### Network Analysis
 
-## amp_generic_stats.py
+#### allconnections.py
+Dumps all network connections across all endpoints.
 
-This script will create a csv file with statistic gathered against each of the hosts in the AMP installation so they can be searched for [anomalies](https://vpotapov.wordpress.com/2017/03/20/event-aggregation/). It targets, specific parameters such as:
-
-- Number of created/moved/executed files
-- Number of network connections
-- Number of specific AMP alerts such as 'Threat Quarantined' or 'Malware Executed'
-
-## getSpecificEvent.py
-
-This file extracts specific events from AMP API, identified by Event ID, and exports them to CSV file. Please edit [config.txt](config.txt) and add appropriate API keys.
-
-How to invoke:
-
-```
-python3 getSpecificEvent.py <config file> <event_number> <CSV file name>
-i.e.
-python3 getSpecificEvent.py config.txt 1107296274 cloud.ioc.csv
+**Usage:**
+```bash
+python3 allconnections.py -c config.txt
+python3 allconnections.py -c config.txt --csv all_connections.csv
+python3 allconnections.py -c config.txt --no-sanitize  # Don't sanitize IPs/URLs
+python3 allconnections.py -c config.txt --limit 100     # Process only 100 computers
 ```
 
-Example output:
+**Sample output:**
 ```
-[+] Total results: 3452
-[+] Event Type: Cloud IOC
-[+] Dumped 3452 lines to cloud.ioc.csv
-```
-
-List of available event codes can be retrieved using [API function event_types](https://api-docs.amp.cisco.com/api_actions/details?api_action=GET+%2Fv1%2Fevent_types&api_host=api.amp.cisco.com&api_resource=Event+Type&api_version=v1):
-
-```
-553648130 : Policy Update
-554696714 : Scan Started
-554696715 : Scan Completed, No Detections
-1091567628 : Scan Completed With Detections
-2165309453 : Scan Failed
-1090519054 : Threat Detected
-553648143 : Threat Quarantined
-2164260880 : Quarantine Failure
-570425394 : Quarantine Restore Requested
-553648149 : Quarantined Item Restored
-2164260884 : Quarantine Restore Failed
-2181038130 : Quarantine Request Failed to be Delivered
-553648154 : Cloud Recall Restore from Quarantine
-553648155 : Cloud Recall Quarantine Successful
-2164260892 : Cloud Recall Restore from Quarantine Failed
-2164260893 : Cloud Recall Quarantine Attempt Failed
-553648158 : Install Started
-2164260895 : Install Failure
-553648166 : Uninstall
-2164260903 : Uninstall Failure
-1003 : Email Confirmation
-1004 : Forgotten Password Reset
-1005 : Password Has Been Reset
-2164260866 : Policy Update Failure
-553648146 : Cloud Recall Restore of False Positive
-553648147 : Cloud Recall Detection
-553648168 : Execution Blocked
-553648150 : Quarantine Restore Started
-570425396 : Application Registered
-570425397 : Application Deregistered
-570425398 : Application Authorized
-570425399 : Application Deauthorized
-1090524040 : APK Threat Detected
-1090524041 : APK Custom Threat Detected
-1090519084 : DFC Threat Detected
-1107296261 : Adobe Reader compromise
-1107296262 : Microsoft Word compromise
-1107296263 : Microsoft Excel compromise
-1107296264 : Microsoft PowerPoint compromise
-1107296266 : Adobe Reader launched a shell
-1107296267 : Microsoft Word launched a shell
-1107296268 : Microsoft Excel launched a shell
-1107296269 : Microsoft PowerPoint launched a shell
-1107296270 : Apple QuickTime compromise
-1107296271 : Apple QuickTime launched a shell
-1107296272 : Executed malware
-1107296273 : Suspected botnet connection
-553648170 : Reboot Pending
-553648171 : Reboot Completed
-1107296274 : Cloud IOC
-1107296275 : Microsoft Calculator compromise
-1107296276 : Microsoft Notepad compromise
-553648173 : File Fetch Completed
-2164260910 : File Fetch Failed
-554696756 : Endpoint IOC Scan Started
-554696757 : Endpoint IOC Scan Completed, No Detections
-1091567670 : Endpoint IOC Scan Completed With Detections
-2165309495 : Endpoint IOC Scan Failed
-2164260914 : Endpoint IOC Definition Update Failure
-553648179 : Endpoint IOC Definition Update Success
-2164260911 : Endpoint IOC Configuration Update Failure
-553648176 : Endpoint IOC Configuration Update Success
-1090519089 : Endpoint IOC Scan Detection Summary
-1107296277 : Connection to suspicious domain
-1107296278 : Threat Detected in Low Prevalence Executable
-1107296279 : Vulnerable Application Detected
-1107296280 : Suspicious Download
-1107296281 : Microsoft CHM Compromise
-1107296282 : Suspicious Cscript Launch
-1090519096 : Update: Reboot Required
-1090519097 : Update: Reboot Advised
-2164260922 : Update: Unexpected Reboot Required
-553648137 : Product Update Failed
-553648135 : Product Update Started
-553648136 : Product Update Completed
-1107296285 : Cognitive Incident
-1107296284 : Potential Ransomware
-1107296283 : Possible Webshell
-1090519103 : Exploit Prevention
-2164260931 : Critical Fault Raised
-1090519107 : Major Fault Raised
-553648195 : Minor Fault Raised
-553648196 : Fault Cleared
-1090519081 : Rootkit Detection
-1090519105 : Malicious Activity Detection
-1090519102 : iOS Network Detection
-553648199 : Malicious Activity Block
-1090519112 : System Process Protection
-553648202 : Endpoint Isolation Start Success
-2164260939 : Endpoint Isolation Start Failure
-553648204 : Endpoint Isolation Stop Success
-2164260941 : Endpoint Isolation Stop Failure
-553648206 : Endpoint Isolation Update Success
-2164260943 : Endpoint Isolation Update Failure
-553648208 : Orbital Install Success
-2164260945 : Orbital Install Failure
-553648210 : Orbital Update Success
-2164260947 : Orbital Update Failure
-553648215 : Endpoint Isolation Unlock Limit Reached
-1107296257 : Potential Dropper Infection
-1107296258 : Multiple Infected Files
-1107296344 : SecureX Threat Hunting Incident
+[+] Outbound network event at hostname : workstation01
+    2024-01-01 10:00:00 : outbound : workstation01 : TCP 10.0.0.100:51234 -> 93.184.216.34:443
 ```
 
-## AMP4E API Endpoints 
+#### dumpallURL.py
+Extracts all URL requests from all endpoints.
 
-AMP API endpoint need to be specified in the config file under 'domainIP' parameter. Please choose one depending on location of your console:
-
-- ```api.eu.amp.cisco.com``` - AMP EU 
-- ```api.amp.cisco.com``` - AMP
-- ```api.apjc.amp.cisco.com``` - AMP APJC
-
-## GitHub hashes for popular hacking tools:
-
-Various GitHub repositories can also be used for hunting. SHA256 hashes from these repositories, along with historic versions, are captured in the [hashset](hashset/) directory under either the [exploits](hashset/exploits) folder or the [hacking-tools](hashset/hacking-tools). At present, the following repositories are fully hashed (including all historical commits):
-
-- [linux-kernel-exploits](https://github.com/SecWiki/linux-kernel-exploits)
-- [LaZagne](https://github.com/AlessandroZ/LaZagne)
-- [BeRoot](https://github.com/AlessandroZ/BeRoot)
-- [LaZagneForensic](https://github.com/AlessandroZ/LaZagneForensic)
-- [Ghostpack-CompiledBinaries](https://github.com/r3motecontrol/Ghostpack-CompiledBinaries)
-- [PowerSCCM](https://github.com/PowerShellMafia/PowerSCCM)
-- [PowerSploit](https://github.com/PowerShellMafia/PowerSploit)
-- [PoshC2_Old](https://github.com/nettitude/PoshC2_Old)
-- [impacket](https://github.com/SecureAuthCorp/impacket)
-- [PoshC2](https://github.com/nettitude/PoshC2)
-- [windows-kernel-exploits](https://github.com/SecWiki/windows-kernel-exploits)
-- [sqlmap](https://github.com/sqlmapproject/sqlmap)
-- [SharpCollection](https://github.com/Flangvik/SharpCollection)
-- [exploitdb](https://github.com/offensive-security/exploitdb)
-- [metasploit-framework](https://github.com/rapid7/metasploit-framework)
-
-## [LOLBIN](https://lolbas-project.github.io/)
-
-[LOLBIN](https://lolbas-project.github.io/) SHA256 hashes (and other core windows tools worth hunting for) can be found in either [windows-binaries](hashset/windows-binaries) or [windows-dll](hashset/windows-dll). In partifular, [hash2processarg.py](hash2processarg.py) or [multikeyword_searchis.py](multikeyword_searchis.py) are very handy when hunting for LOLBINS since it will show associated command line arguments or network connections. 
-
-
-## Examples of useful things to grep and search for:
-
-```
-rundll32 + url.dll
-net + admin or domain
-net + use of weak credentials to mount network share
-powershell + iex
-powershell + "==" (for base64)
-cmd + whoami
-net + use + http or \\ (for webdav)
-psexec + use of -s or cmd with password
-procdump + lsass
-psexec-svc
-nltest
-net + administrator
-vulnerable software (using event code 1107296279)
-wevtutil.exe cl (cleanup ofr event logs)
-hacking tools (see hashset/hacking-tools folder)
-sc command disabling any of criticial security services such as SepMasterService, SAVAdminService, wscsvc, wuauserv, SavService ,MpsSvc
-mshta + ActiveXObject
-javascript + ActiveXObject 
-WScript + javascript
-w3wp spawning powershell/cmd writing to files
-http[s]/webdav url passed to lolbins 
-reg + HKLM\SAM
-winrm.vbs
-winrm
+**Usage:**
+```bash
+python3 dumpallURL.py -c config.txt
+python3 dumpallURL.py -c config.txt --csv urls.csv
+python3 dumpallURL.py -c config.txt --summary  # Show domain statistics
 ```
 
+#### lateral_movement.py
+Detects potential lateral movement by monitoring specific ports (SMB, RDP, WinRM, RPC).
+
+**Usage:**
+```bash
+python3 lateral_movement.py -c config.txt
+python3 lateral_movement.py -c config.txt --csv lateral_movement.csv --summary
+```
+
+**Monitored ports:**
+- 139, 445 (SMB)
+- 3389 (RDP)
+- 5985, 5986 (WinRM)
+- 135 (RPC/WMIC)
+
+### Threat Hunting
+
+#### multikeyword_search.py
+Searches for multiple keywords, IPs, or SHA256 hashes across all endpoints.
+
+**Usage:**
+```bash
+python3 multikeyword_search.py -c config.txt keywords.txt
+python3 multikeyword_search.py -c config.txt keywords.txt --csv results.csv
+```
+
+**Sample keyword file:**
+```
+mimikatz.exe
+192.168.1.100
+powershell.exe -enc
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+net user /add
+```
+
+#### fresh_vulnerabilities.py
+Identifies vulnerable applications with CVE details.
+
+**Usage:**
+```bash
+python3 fresh_vulnerabilities.py -c config.txt
+python3 fresh_vulnerabilities.py -c config.txt --csv vulnerabilities.csv --summary
+```
+
+**Output includes:**
+- CVE identifiers
+- CVSS scores (individual and average)
+- Affected products and versions
+- Reference URLs
+
+### Statistics and Reporting
+
+#### amp_generic_stats.py
+Generates comprehensive statistics for anomaly detection.
+
+**Usage:**
+```bash
+python3 amp_generic_stats.py -c config.txt
+python3 amp_generic_stats.py -c config.txt --csv stats.csv
+```
+
+**Metrics collected:**
+- Vulnerable applications
+- Network events (NFM)
+- File executions, creations, movements
+- Threat detections and quarantines
+- Malicious activity detections
+
+#### getSpecificEvent.py
+Extracts all events of a specific type by Event ID.
+
+**Usage:**
+```bash
+python3 getSpecificEvent.py -c config.txt <event_id> output.csv
+
+# Examples:
+python3 getSpecificEvent.py -c config.txt 1090519054 threats.csv       # Threat Detected
+python3 getSpecificEvent.py -c config.txt 1107296274 cloud_ioc.csv     # Cloud IOC
+python3 getSpecificEvent.py -c config.txt 1107296279 vulnerable.csv    # Vulnerable Application
+```
+
+**Common Event IDs:**
+- `1090519054` - Threat Detected
+- `553648143` - Threat Quarantined
+- `1107296272` - Executed malware
+- `1107296274` - Cloud IOC
+- `1107296279` - Vulnerable Application Detected
+- `1107296284` - Potential Ransomware
+- `553648147` - Network File Move (NFM)
+
+## Hash Sets
+
+The repository includes pre-computed SHA256 hashes for:
+
+### Windows Binaries (LOLBINS)
+Located in `hashset/windows-binaries/`:
+- System utilities that can be abused (certutil.exe, bitsadmin.exe, etc.)
+- PowerShell and scripting hosts
+- Network tools (net.exe, netsh.exe)
+
+### Hacking Tools
+Located in `hashset/hacking-tools/`:
+- [LaZagne](https://github.com/AlessandroZ/LaZagne) - Password recovery
+- [Mimikatz](https://github.com/gentilkiwi/mimikatz) - Credential dumping
+- [Impacket](https://github.com/SecureAuthCorp/impacket) - Network protocols
+- [PowerSploit](https://github.com/PowerShellMafia/PowerSploit) - PowerShell post-exploitation
+- [GhostPack](https://github.com/GhostPack) - .NET post-exploitation
+- [Metasploit](https://github.com/rapid7/metasploit-framework) modules
+
+### Exploits
+Located in `hashset/exploits/`:
+- Windows kernel exploits
+- Linux kernel exploits
+- Exploit-DB archives
+
+## Hunting Examples
+
+### Detect PowerShell Empire/Encoded Commands
+```bash
+echo "powershell.exe -enc" > keywords.txt
+echo "powershell.exe -encoded" >> keywords.txt
+echo "iex(" >> keywords.txt
+python3 multikeyword_search.py -c config.txt keywords.txt --csv powershell_suspicious.csv
+```
+
+### Hunt for Credential Dumping
+```bash
+cat hashset/hacking-tools/mimikatz.txt > cred_tools.txt
+cat hashset/windows-binaries/procdump.exe.txt >> cred_tools.txt
+echo "lsass" >> cred_tools.txt
+python3 multikeyword_search.py -c config.txt cred_tools.txt --csv credential_dumping.csv
+```
+
+### Identify Lateral Movement
+```bash
+# Check for PsExec and similar tools
+python3 hash2connection.py -c config.txt hashset/psexec/psexec.exe.txt --csv psexec_connections.csv
+
+# Monitor lateral movement protocols
+python3 lateral_movement.py -c config.txt --csv lateral_movement.csv --summary
+
+# Check for suspicious service names
+echo "psexesvc" > keywords.txt
+echo "paexec" >> keywords.txt
+python3 multikeyword_search.py -c config.txt keywords.txt
+```
+
+### Detect Persistence Mechanisms
+```bash
+echo "schtasks /create" > persistence.txt
+echo "reg add.*CurrentVersion\\Run" >> persistence.txt
+echo "sc create" >> persistence.txt
+echo "wmic.*startup" >> persistence.txt
+python3 multikeyword_search.py -c config.txt persistence.txt --csv persistence.csv
+```
+
+## Best Practices
+
+1. **Rate Limiting**: The library automatically handles rate limits
+
+2. **Caching**: Enable caching for repeated queries:
+   ```bash
+   export AMP_CACHE_ENABLED=true
+   export AMP_CACHE_TTL=300  # 5 minutes
+   ```
+
+3. **Output Management**: Always use `--csv` flag for large datasets to avoid console overflow.
+
+4. **Regular Hunting**: Schedule regular hunts for:
+   - New vulnerable applications
+   - Suspicious network connections
+   - Known malicious hashes
+   - Lateral movement patterns
 
 ## Limitations
 
-- AMP activity trajectory allows to search only last 500 events so historical data might be limited. 
-- Experimental threading scripts are in [asyncio](https://github.com/op7ic/amphunt/tree/asyncio) directory. These are under developement.
+- AMP trajectory API returns maximum 500 events per endpoint
+- Historical data may be limited based on retention policies
+- Some events may be missed if rate limits are exceeded
 
-## Prerequisites 
+## Writing New Scripts
 
-- Python3.6+
+This section explains how to create new scripts using the amp_client library.
 
-## TODO
+### Basic Script Template
 
-- [x] Output to CSV
-- [x] Handle pagination
-- [ ] Optimize output
-- [ ] Better exception / error handling / code quality. These tools are mostly PoC for now
-- [ ] Threading
-- [x] Hash various security tools/exploits from public repos
+```python
+#!/usr/bin/env python3
+"""
+Script Name: your_script.py
+Author: Your Name
+Copyright: See LICENSE file
+Github: https://github.com/op7ic/amphunt
+
+your_script.py - Brief description of what your script does
+
+This script performs [detailed description of functionality].
+
+Usage:
+	python your_script.py -c <config_file> [options]
+"""
+
+import sys
+import argparse
+from amp_client import AMPClient, Config
+# Add other imports as needed
+
+def main():
+    parser = argparse.ArgumentParser(description='Your script description')
+    parser.add_argument('-c', '--config', required=True, help='Configuration file path')
+    # Add other arguments as needed
+    parser.add_argument('--csv', help='Export results to CSV file')
+    parser.add_argument('--limit', type=int, help='Limit number of computers to process')
+    args = parser.parse_args()
+    
+    # Load configuration
+    config = Config.from_file(args.config)
+    
+    # Create client and perform operations
+    with AMPClient(config) as client:
+        # Your code here
+        pass
+
+if __name__ == '__main__':
+    main()
+```
+
+### Required Imports
+
+#### Core imports for all scripts:
+```python
+from amp_client import AMPClient, Config
+```
+
+#### Additional imports based on functionality:
+
+**For event processing:**
+```python
+from amp_client.models import EventType, Event
+```
+
+**For computer/trajectory data:**
+```python
+from amp_client.models import Computer, ComputerTrajectory, TrajectoryEvent
+```
+
+**For network events:**
+```python
+from amp_client.models import NetworkEvent
+from amp_client.utils import NetworkEventFormatter
+```
+
+**For file events:**
+```python
+from amp_client.utils import FileEventFormatter
+```
+
+**For CSV/JSON export:**
+```python
+from amp_client.utils import CSVExporter, JSONExporter
+```
+
+**For lateral movement detection:**
+```python
+from amp_client.utils import LateralMovementDetector
+```
+
+**For hash validation:**
+```python
+from amp_client.utils import HashIdentifier, Validators
+```
+
+**For error handling:**
+```python
+from amp_client import AMPError, AMPAuthenticationError, AMPRateLimitError
+```
+
+### Common Patterns
+
+#### 1. Processing all computers:
+```python
+with AMPClient(config) as client:
+    computers = list(client.computers.list(limit=args.limit))
+    
+    for computer in computers:
+        print(f"Processing {computer.hostname} ({computer.connector_guid})")
+        # Process each computer
+```
+
+#### 2. Getting events for a computer:
+```python
+events = list(client.events.list(
+    connector_guid=computer.connector_guid,
+    limit=500 # Max 500 events
+))
+
+# Or for specific event types
+events = list(client.events.list(
+    connector_guid=computer.connector_guid,
+    event_type=[EventType.THREAT_DETECTED, EventType.THREAT_QUARANTINED]
+))
+```
+
+#### 3. Getting computer trajectory:
+```python
+trajectory = client.computers.get_trajectory(
+    connector_guid=computer.connector_guid,
+    limit=500  # Max 500 events
+)
+
+for event in trajectory.events:
+    if event.file and event.file.identity:
+        print(f"{event.timestamp}: {event.file.file_name} - {event.file.identity.sha256}")
+```
+
+#### 4. Exporting to CSV:
+```python
+# Create exporter
+csv_exporter = CSVExporter(args.csv)
+
+# Define columns
+csv_exporter.write_header(['timestamp', 'hostname', 'event_type', 'description'])
+
+# Write data
+for event in events:
+    csv_exporter.write_row([
+        event.timestamp,
+        computer.hostname,
+        event.event_type_name,
+        event.description
+    ])
+
+csv_exporter.close()
+```
+
+#### 5. Error handling:
+```python
+try:
+    with AMPClient(config) as client:
+        # Your code
+        pass
+except AMPAuthenticationError:
+    print("[-] Authentication failed. Check your credentials.")
+    sys.exit(1)
+except AMPRateLimitError:
+    print("[-] Rate limit exceeded. Try again later.")
+    sys.exit(1)
+except AMPError as e:
+    print(f"[-] AMP API error: {e}")
+    sys.exit(1)
+```
+
+### Configuration Options
+
+The Config class accepts these parameters:
+- `client_id` (required): Your AMP API client ID
+- `api_key` (required): Your AMP API key
+- `region`: 'nam' (default), 'eu', or 'apjc'
+- `domain`: Custom API domain (auto-set by region)
+- `rate_limit_buffer`: Seconds before rate limit to pause (default: 5)
+- `retry_attempts`: Number of retry attempts (default: 3)
+- `retry_backoff`: Backoff multiplier for retries (default: 2)
+- `cache_enabled`: Enable response caching (default: False)
+- `cache_ttl`: Cache time-to-live in seconds (default: 300)
+
+### Best Practices
+
+1. **Always use context managers**: Use `with AMPClient(config) as client:` to ensure proper cleanup
+2. **Handle pagination**: The library handles pagination automatically when using `.list()` methods
+3. **Add progress indicators**: For long-running operations, show progress to the user
+4. **Validate inputs**: Use `Validators` class for hash and input validation
+5. **Follow naming conventions**: Use descriptive variable names and follow PEP 8
+6. **Add comprehensive help**: Document all command-line arguments clearly
+7. **Test with limits**: Always test with `--limit` flag first before processing all computers
+
+### Example: Creating a Custom Threat Hunter
+
+```python
+#!/usr/bin/env python3
+"""
+custom_hunter.py - Hunt for specific IOCs across all endpoints
+"""
+
+import sys
+import argparse
+from collections import defaultdict
+from amp_client import AMPClient, Config
+from amp_client.models import EventType
+from amp_client.utils import CSVExporter, HashIdentifier
+
+def main():
+    parser = argparse.ArgumentParser(description='Hunt for custom IOCs')
+    parser.add_argument('-c', '--config', required=True, help='Configuration file path')
+    parser.add_argument('-i', '--iocs', required=True, help='File containing IOCs (one per line)')
+    parser.add_argument('--csv', help='Export results to CSV file')
+    parser.add_argument('--limit', type=int, help='Limit number of computers to process')
+    args = parser.parse_args()
+    
+    # Load IOCs
+    with open(args.iocs, 'r') as f:
+        iocs = {line.strip().lower() for line in f if line.strip()}
+    
+    # Categorize IOCs
+    hash_identifier = HashIdentifier()
+    sha256_hashes = {ioc for ioc in iocs if hash_identifier.is_sha256(ioc)}
+    other_iocs = iocs - sha256_hashes
+    
+    print(f"[+] Loaded {len(sha256_hashes)} SHA256 hashes and {len(other_iocs)} other IOCs")
+    
+    # Load configuration and create client
+    config = Config.from_file(args.config)
+    
+    with AMPClient(config) as client:
+        # Get computers
+        computers = list(client.computers.list(limit=args.limit))
+        print(f"[+] Processing {len(computers)} computers")
+        
+        results = []
+        
+        for computer in computers:
+            print(f"[+] Checking {computer.hostname}")
+            
+            # Get trajectory
+            trajectory = client.computers.get_trajectory(
+                connector_guid=computer.connector_guid,
+                limit=500
+            )
+            
+            # Check each event
+            for event in trajectory.events:
+                # Check file hashes
+                if event.file and event.file.identity:
+                    if event.file.identity.sha256 in sha256_hashes:
+                        results.append({
+                            'timestamp': event.timestamp,
+                            'hostname': computer.hostname,
+                            'ioc_type': 'SHA256',
+                            'ioc_value': event.file.identity.sha256,
+                            'file_name': event.file.file_name,
+                            'file_path': event.file.file_path
+                        })
+                
+                # Check other IOCs in file paths and names
+                if event.file:
+                    for ioc in other_iocs:
+                        if (event.file.file_name and ioc in event.file.file_name.lower() or
+                            event.file.file_path and ioc in event.file.file_path.lower()):
+                            results.append({
+                                'timestamp': event.timestamp,
+                                'hostname': computer.hostname,
+                                'ioc_type': 'String',
+                                'ioc_value': ioc,
+                                'file_name': event.file.file_name,
+                                'file_path': event.file.file_path
+                            })
+        
+        # Display results
+        print(f"\n[+] Found {len(results)} matches")
+        for result in results:
+            print(f"[!] {result['timestamp']} - {result['hostname']} - "
+                  f"{result['ioc_type']}: {result['ioc_value']} - "
+                  f"{result['file_name']}")
+        
+        # Export to CSV if requested
+        if args.csv:
+            csv_exporter = CSVExporter(args.csv)
+            csv_exporter.write_header(list(results[0].keys()) if results else [])
+            for result in results:
+                csv_exporter.write_row(list(result.values()))
+            csv_exporter.close()
+            print(f"[+] Results exported to {args.csv}")
+
+if __name__ == '__main__':
+    main()
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Test your changes thoroughly
+4. Submit a pull request
+
+## 🤝 Contributing
+
+Contributions are welcome! Please submit issues and pull requests on GitHub.
+
+## License
+
+See LICENSE file
+
+## Disclaimer
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

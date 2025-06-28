@@ -1,4 +1,4 @@
-[settings]
-client_id = XXXXXXXXXXXXXXX
-api_key = XXXXXXXXXXXXXXX
-domainIP = XXXXXXXXXXXXXXX
+[api]
+client_id = xxxxxxxxxxx
+api_key = xxxxxxxxxxxx
+region = nam

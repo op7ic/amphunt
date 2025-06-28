@@ -1,181 +1,159 @@
-# This script is based on https://github.com/CiscoSecurity/amp-01-basics/blob/master/04_get_events.py
-# This script is based on https://stackoverflow.com/questions/41180960/convert-nested-json-to-csv-file-in-python
-# This script is based on https://www.geeksforgeeks.org/python-convert-list-of-tuples-to-dictionary-value-lists/
+#!/usr/bin/env python3
+"""
+Script Name: getSpecificEvent.py
+Author: Jerzy 'Yuri' Kramarz (op7ic)
+Copyright: See LICENSE file
+Github: https://github.com/op7ic/amphunt
+
+getSpecificEvent.py - Extract and export specific event types
+
+This script searches for and exports all events of a specific type across
+your AMP environment. Supports complex event data extraction and CSV export.
+
+Usage:
+	python getSpecificEvent.py -c/--config <config_file> <event_id> <output.csv>
+"""
+
 import sys
-import requests
-import time
+import argparse
 import csv
-import gc
-import configparser
-from collections import defaultdict 
-from operator import itemgetter 
-from itertools import groupby 
-
-# Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+from collections import defaultdict
+from itertools import groupby
+from operator import itemgetter
+from amp_client import AMPClient, Config
+from amp_client.models import EventType
 
 
-# Get all leaves from JSON file so headers can be used for CSV
 def get_leaves(item, key=None):
-    """ Idea taken from https://stackoverflow.com/questions/41180960/convert-nested-json-to-csv-file-in-python """ 
-    if isinstance(item, dict):
-        leaves = []
-        for i in item.keys():
-            leaves.extend(get_leaves(item[i], i))
-        return leaves
-    elif isinstance(item, list):
-        leaves = []
-        for i in item:
-            leaves.extend(get_leaves(i, key))
-        return leaves
-    else:
-        return [(key, item)]
+	"""Extract all leaf nodes from nested dictionary/list structure"""
+	if isinstance(item, dict):
+		leaves = []
+		for i in item.keys():
+			leaves.extend(get_leaves(item[i], i))
+		return leaves
+	elif isinstance(item, list):
+		leaves = []
+		for i in item:
+			leaves.extend(get_leaves(i, key))
+		return leaves
+	else:
+		return [(key, item)]
 
-# Perfrom reduction on Tuple to ensure that single key is present with multiple values as opposed to multiple keys
-def reduceTuple(input_list): 
-    """ Idea taken from https://www.geeksforgeeks.org/python-group-tuples-in-list-with-same-first-value/ """ 
-    out = {} 
-    for elem in input_list: 
-        try: 
-            out[elem[0]].extend(elem[1:]) 
-        except KeyError: 
-            out[elem[0]] = list(elem) 
 
-    return [tuple(values) for values in out.values()] 
+def reduce_tuple(input_list):
+	"""Reduce tuples to ensure single key with multiple values"""
+	out = {}
+	for elem in input_list:
+		try:
+			out[elem[0]].extend(elem[1:])
+		except KeyError:
+			out[elem[0]] = list(elem)
+	return [tuple(values) for values in out.values()]
 
-# Walk and sort JSON
+
 def walk_json(event):
-    """ Walk JSON to determine sensible fields to extract """
-    """ Idea taken from https://stackoverflow.com/questions/41180960/convert-nested-json-to-csv-file-in-python """ 
-    # Extract headers from JSON object
-    return sorted(get_leaves(event))
-
-def returnDictFromTuple(tup):
-    return dict((k, [v[1] for v in itr]) for k, itr in groupby(tup, itemgetter(0))) 
+	"""Walk JSON to extract all fields in sorted order"""
+	return sorted(get_leaves(event))
 
 
-# Validate a command line parameter was provided
-if len(sys.argv) < 2:
-    sys.exit('Usage: <config file> <event id> <csv file to write>\n %s' % sys.argv[0])
-
-config = configparser.ConfigParser()
-config.read(sys.argv[1])
-client_id = config['settings']['client_id']
-api_key = config['settings']['api_key']
-domainIP = config['settings']['domainIP']
-
-# Store the command line parameter
-searchEventId=sys.argv[2]
-fileDump=sys.argv[3]
-
-# Store GUIDs + other elements
-computer_guids = {}
-objects_to_write = dict()
-
-# Creat session object
-# http://docs.python-requests.org/en/master/user/advanced/
-# Using a session object gains efficiency when making multiple requests
-session = requests.Session()
-session.auth = (client_id, api_key)
-
-# Define URL and parameters
-events = 'https://{}/v1/events?event_type[]={}'.format(domainIP,searchEventId)
-# Query API
-response_events = session.get(events, verify=False)
-
-# Get Headers
-headers=response_events.headers
-# Ensure we don't cross API limits, sleep if we are approaching limits
-if int(headers['X-RateLimit-Remaining']) < 10:
-    print("[+] Sleeping {} seconds to ensure reset clock works".format(int(headers['X-RateLimit-Reset'])))
-    time.sleep(int(headers['X-RateLimit-Reset'])+5)
-# Attempt to get valid JSON object, pass on error 
-try:
-    # Decode JSON response
-    response_event_json = response_events.json()
-    # Name data section of JSON
-    data = response_event_json['data']
-    # Name total section of JSON
-    total = response_event_json['metadata']['results']['total']    
-except:
-    pass
-
-# Print total number of alerts in AMP console
-try:
-    print("[+] Total results: {}".format(total))
-    print("[+] Event Type: {} ".format(data[0]['event_type']))
-except:
-    print("[-] Event ID {} 0 events".format(searchEventId))
-    sys.exit(1)
-
-# For each record entry, add hostname and GUID of system which matches with Event ID, discard anything else
-for entry in data:
-    if int(entry['event_type_id']) == int(searchEventId) and entry['event_type'] != "Install Started":
-        connector_guid = entry['connector_guid']
-        hostname = entry['computer']['hostname']
-        computer_guids.setdefault(connector_guid, {'hostname':hostname})
-        date=entry['date']
-        # We save GUID + Date to make unique key in the dictionary
-        objects_to_write.setdefault(str(connector_guid+"+"+date),reduceTuple(walk_json(entry)))
-    else:
-        pass
-
-# If we encounter 500+ events, walk the subsequent pages, not split into separate function for simplicity
-while 'next' in response_event_json['metadata']['links']:
-    # Retrieve next URL link
-    next_url = response_event_json['metadata']['links']['next']
-    response_events = session.get(next_url,verify=False)
-    response_event_json = response_events.json()
-    # Ensure we don't cross API limits, sleep if we are approaching limits
-    headers=response_events.headers
-    if int(headers['X-RateLimit-Remaining']) < 10:
-        print("[+] Sleeping {} seconds to ensure reset clock works".format(int(headers['X-RateLimit-Reset'])))
-        time.sleep(int(headers['X-RateLimit-Reset'])+5)
-        
-    data = response_event_json['data']
-    # For each record entry, add hostname and GUID of system which matches with Event ID, discard anything else
-    for entry in data:
-        if int(entry['event_type_id']) == int(searchEventId) and entry['event_type'] != "Install Started":
-            connector_guid = entry['connector_guid']
-            hostname = entry['computer']['hostname']
-            date=entry['date']
-            computer_guids.setdefault(connector_guid, {'hostname':hostname})
-            # We save GUID + Date to make unique key in the dictionary
-            objects_to_write.setdefault(str(connector_guid+"+"+date),reduceTuple(walk_json(entry)))
-        else:
-            pass
-
-# Store headers
-header_set = set()
-# Store list of dict objects to write back to CSV files
-output_list = list()
-
-bs=dict()
-# Assign values to keys
-for key, values in objects_to_write.items():
-    # Create new dict from tuples
-    bs[key] = returnDictFromTuple(values)
-    for list_keys in bs[key].keys():
-        header_set.add(list_keys)
-    output_list.append(bs)
-
-# # Final flush to final output csv
-f = open(fileDump, 'w')
-
-with f:
-    # Use DictWriter to write dictionary write list of objects to csv file
-    writer = csv.DictWriter(f, fieldnames=header_set,restval="-")    
-    # Append Header
-    writer.writeheader()
-    # Enumerate list of objects returned
-    for k in bs.values():
-        writer.writerow(k)
+def dict_from_tuple(tup):
+	"""Convert tuple list to dictionary"""
+	return dict((k, [v[1] for v in itr]) for k, itr in groupby(tup, itemgetter(0)))
 
 
-f.close()
+def main():
+	parser = argparse.ArgumentParser(description='Extract specific event types from AMP')
+	parser.add_argument('-c', '--config', required=True, help='Configuration file path')
+	parser.add_argument('event_id', help='Event type ID to search for')
+	parser.add_argument('output', help='Output CSV file path')
+	parser.add_argument('--limit', type=int, help='Limit number of events to process')
+	args = parser.parse_args()
 
-print("[+] Dumped {} lines to {}".format(len(bs),fileDump))
-# Collect garbage
-gc.collect()
+	# Load configuration
+	config = Config.from_file(args.config)
 
+	# Validate event ID
+	try:
+		event_id = int(args.event_id)
+	except ValueError:
+		sys.exit(f"Error: Event ID must be a number, got: {args.event_id}")
+
+	# Create client
+	with AMPClient(config) as client:
+		print(f"[+] Searching for event type ID: {event_id}")
+
+		# Get event type name if possible
+		try:
+			event_type_name = EventType.get_name(event_id)
+			print(f"[+] Event Type: {event_type_name}")
+		except:
+			event_type_name = f"Event ID {event_id}"
+			print(f"[+] Event Type: Unknown (ID: {event_id})")
+
+		# Collect all events
+		all_events = []
+		objects_to_write = {}
+		header_set = set()
+
+		# Search for events
+		event_count = 0
+		for event in client.events.search_by_type(event_id):
+			# Skip "Install Started" events as they're typically not useful
+			if event.event_type == "Install Started":
+				continue
+
+			# Create unique key for deduplication
+			unique_key = f"{event.connector_guid}+{event.date}"
+
+			# Extract all fields from event
+			event_dict = event.__dict__
+			flattened = reduce_tuple(walk_json(event_dict))
+			objects_to_write[unique_key] = flattened
+
+			event_count += 1
+			if args.limit and event_count >= args.limit:
+				print(f"[+] Reached limit of {args.limit} events")
+				break
+
+			# Progress indicator
+			if event_count % 100 == 0:
+				print(f"[+] Processed {event_count} events...")
+
+		print(f"[+] Total results: {event_count}")
+
+		if event_count == 0:
+			print(f"[-] No events found for event ID {event_id}")
+			return
+
+		# Process collected events for CSV export
+		processed_events = {}
+		for key, values in objects_to_write.items():
+			processed_events[key] = dict_from_tuple(values)
+			# Collect all possible headers
+			for field_key in processed_events[key].keys():
+				header_set.add(field_key)
+
+		# Write to CSV
+		print(f"[+] Writing {len(processed_events)} unique events to {args.output}")
+
+		with open(args.output, 'w', newline='', encoding='utf-8') as f:
+			writer = csv.DictWriter(f, fieldnames=sorted(header_set), restval="-")
+			writer.writeheader()
+
+			for event_data in processed_events.values():
+				# Flatten lists to strings for CSV
+				row = {}
+				for key, value in event_data.items():
+					if isinstance(value, list):
+						# Join list values with semicolon
+						row[key] = ';'.join(str(v) for v in value)
+					else:
+						row[key] = value
+				writer.writerow(row)
+
+		print(f"[+] Dumped {len(processed_events)} lines to {args.output}")
+		print("[+] Done")
+
+
+if __name__ == "__main__":
+	main()

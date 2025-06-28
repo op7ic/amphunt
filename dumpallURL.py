@@ -1,147 +1,163 @@
-# This script is based on https://github.com/CiscoSecurity/amp-04-sha256-to-network-connections/blob/master/sha256_to_network_connections.py
+#!/usr/bin/env python3
+"""
+Script Name: dumpallURL.py
+Author: Jerzy 'Yuri' Kramarz (op7ic)
+Copyright: See LICENSE file
+Github: https://github.com/op7ic/amphunt
+
+dumpallURL.py - Extract all URL requests from all computers
+
+This script retrieves all URL-based network events from all computers
+in your AMP environment, useful for identifying suspicious domains,
+C2 communications, and data exfiltration attempts.
+
+Usage:
+	python dumpallURL.py -c/--config <config_file> [--csv output.csv]
+"""
+
 import sys
-import requests
-import configparser
-import time
-import gc
-import json
-from urllib.parse import urlparse
+import argparse
+from collections import defaultdict
+from amp_client import AMPClient, Config
+from amp_client.utils import OutputFormatter, CSVExporter
 
 
-# Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+def main():
+	parser = argparse.ArgumentParser(description='Extract all URL requests from AMP')
+	parser.add_argument('-c', '--config', required=True, help='Configuration file path')
+	parser.add_argument('--csv', help='Export results to CSV file')
+	parser.add_argument('--no-sanitize', action='store_true', help='Do not sanitize URLs and IPs')
+	parser.add_argument('--limit', type=int, help='Limit number of computers to process')
+	parser.add_argument('--summary', action='store_true', help='Show domain summary at the end')
+	args = parser.parse_args()
 
-def extractDomainFromURL(url):
-    """ Extract domain name from URL"""
-    return urlparse(url).netloc
+	# Load configuration
+	config = Config.from_file(args.config)
 
-def extractGUID(data):
-    """ Extract GUIDs from data structure and store them in computer_guids variable"""
-    for entry in data:
-        connector_guid = entry['connector_guid']
-        hostname = entry['hostname']
-        computer_guids.setdefault(connector_guid, {'hostname':hostname})
+	# Create client
+	with AMPClient(config) as client:
+		# Get all computers
+		print('[+] Fetching computers...')
+		computers = list(client.computers.list())
 
-def checkAPITimeout(headers, request):
-    """Ensure we don't cross API limits, sleep if we are approaching close to limits"""
-    if str(request.status_code) == '200':
-        # Extract headers (these are also returned)
-        headers=request.headers
-        # check if we correctly got headers
-        if headers:
-            # We stop on 45 due to number of threads working
-            if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
-                if(int(headers['X-RateLimit-Remaining']) < 45):
-                    if(headers['Status'] == "200 OK"):
-                        # We are close to the border, in theory 429 error code should never trigger if we capture this event
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-                    if(headers['Status'] == "429 Too Many Requests"):
-                        # Triggered too many request, we need to sleep before it continues
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-            elif '503 Service Unavailable' in str(headers):
-                time.sleep(60)
-            else: # we got some new error
-                time.sleep(45)
-        else:
-            # no headers, request probably failed
-            time.sleep(45)
-    elif str(request.status_code) == '404':
-        # 404 - this could mean event timeline or event does no longer exists
-        time.sleep(45)
-        pass
-    elif str(request.status_code) == '503':
-        # server sarted to block us
-        time.sleep(90)
-        pass
-    else:
-        # in any other case, sleep
-        time.sleep(90)
-        pass
+		if args.limit:
+			computers = computers[:args.limit]
+
+		print(f'[+] Total computers found: {len(computers)}')
+
+		# Collect all URL events
+		all_url_events = []
+		domain_stats = defaultdict(lambda: {'count': 0, 'computers': set()})
+
+		# Process each computer
+		for computer in computers:
+			print(f'\n\t[+] Querying: {computer.hostname} - {computer.connector_guid}')
+
+			try:
+				# Get trajectory
+				trajectory = client.computers.get_trajectory(computer.connector_guid)
+
+				# Process events looking for URLs
+				url_count = 0
+				for event in trajectory.events:
+					# Check for URL events
+					if (event.event_type == 'NFM' and event.network_info and 
+						'dirty_url' in event.network_info):
+
+						details = event.network_info
+						url = details['dirty_url']
+						domain = OutputFormatter.extract_domain(url)
+						direction = details.get('nfm', {}).get('direction', '')
+						timestamp = event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+						# Track domain statistics
+						domain_stats[domain]['count'] += 1
+						domain_stats[domain]['computers'].add(computer.hostname)
+
+						# Sanitize if requested
+						display_url = OutputFormatter.sanitize_url(url) if not args.no_sanitize else url
+						display_domain = OutputFormatter.sanitize_url(domain) if not args.no_sanitize else domain
+
+						# Display based on direction
+						if 'Outgoing' in direction:
+							print(f"\t\t [+] Outbound URL request at hostname: {computer.hostname}")
+							print(f'\t\t\t {timestamp} Host: {computer.hostname} URL: {display_url} DOMAIN: {display_domain}')
+						elif 'Incoming' in direction:
+							print(f"\t\t [+] Inbound URL request at hostname: {computer.hostname}")
+							print(f'\t\t\t {timestamp} Host: {computer.hostname} URL: {display_url} DOMAIN: {display_domain}')
+
+						# Store for CSV export
+						all_url_events.append({
+							'timestamp': timestamp,
+							'hostname': computer.hostname,
+							'connector_guid': computer.connector_guid,
+							'direction': 'outbound' if 'Outgoing' in direction else 'inbound',
+							'url': url,
+							'domain': domain,
+							'local_ip': details.get('local_ip', ''),
+							'local_port': details.get('local_port', ''),
+							'remote_ip': details.get('remote_ip', ''),
+							'remote_port': details.get('remote_port', ''),
+							'protocol': details.get('nfm', {}).get('protocol', '')
+						})
+						url_count += 1
+
+				if url_count == 0:
+					print(f"\t\t [-] No URL events found")
+				else:
+					print(f"\t\t [+] Found {url_count} URL events")
+
+			except Exception as e:
+				print(f"\t\t [!] Error processing {computer.hostname}: {e}")
+				continue
+
+		# Show domain summary if requested
+		if args.summary and domain_stats:
+			print("\n[+] Domain Summary (Top 20 by request count):")
+			sorted_domains = sorted(domain_stats.items(), 
+								   key=lambda x: x[1]['count'], 
+								   reverse=True)[:20]
+
+			for domain, stats in sorted_domains:
+				display_domain = OutputFormatter.sanitize_url(domain) if not args.no_sanitize else domain
+				print(f"\n\t{display_domain}")
+				print(f"\t  Requests: {stats['count']}")
+				print(f"\t  Seen on {len(stats['computers'])} computer(s)")
+				if len(stats['computers']) <= 5:
+					print(f"\t  Computers: {', '.join(sorted(stats['computers']))}")
+
+		# Export to CSV if requested
+		if args.csv and all_url_events:
+			print(f'\n[+] Exporting {len(all_url_events)} URL events to {args.csv}...')
+
+			# Convert to format for CSVExporter
+			export_events = []
+			for event in all_url_events:
+				export_events.append({
+					'date': event['timestamp'],
+					'hostname': event['hostname'],
+					'connector_guid': event['connector_guid'],
+					'event_type': 'URL Request',
+					'direction': event['direction'],
+					'url': event['url'],
+					'domain': event['domain'],
+					'local_ip': event['local_ip'],
+					'local_port': event['local_port'],
+					'remote_ip': event['remote_ip'],
+					'remote_port': event['remote_port']
+				})
+
+			CSVExporter.export_events(
+				export_events,
+				args.csv,
+				fields=['date', 'hostname', 'direction', 'domain', 'url', 
+						'local_ip', 'local_port', 'remote_ip', 'remote_port']
+			)
+			print(f'[+] CSV export complete: {args.csv}')
+
+		print(f"\n[+] Total URL events found: {len(all_url_events)}")
+		print("[+] Done")
 
 
-# Validate a command line parameter was provided
-if len(sys.argv) < 2:
-    sys.exit('Usage: <config file.txt>\n %s' % sys.argv[0])
-
-# Parse config to extract API keys
-config = configparser.ConfigParser()
-config.read(sys.argv[1])
-client_id = config['settings']['client_id']
-api_key = config['settings']['api_key']
-domainIP = config['settings']['domainIP']
-
-# Store the command line parameter
-computer_guids = {}
-
-try:
-
-    # http://docs.python-requests.org/en/master/user/advanced/
-    # Using a session object gains efficiency when making multiple requests
-    session = requests.Session()
-    session.auth = (client_id, api_key)
-
-    # Define URL for extraction of all computers
-    computers_url='https://{}/v1/computers'.format(domainIP)
-    response = session.get(computers_url, verify=False)
-    # Get Headers
-    headers=response.headers
-    # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    checkAPITimeout(headers, response)
-    # Decode JSON response
-    response_json = response.json()
-    #Page 1 extract all GUIDs
-    extractGUID(response_json['data'])
-    # Handle paginated pages and extract computer GUIDs
-    if('next' in response_json['metadata']['links']):
-        while 'next' in response_json['metadata']['links']:
-            next_url = response_json['metadata']['links']['next']
-            response = session.get(next_url)
-            headers=response.headers
-            # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            checkAPITimeout(headers, response)
-            # Extract
-            response_json = response.json()
-            extractGUID(response_json['data'])
-
-
-    print('[+] Total computers found: {}'.format(len(computer_guids)))
-    for guid in computer_guids:
-        print('\n\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
-        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-        trajectory_response = session.get(trajectory_url, verify=False)
-        try:
-            trajectory_response_json = trajectory_response.json()
-            headers=trajectory_response.headers
-            # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            checkAPITimeout(headers, trajectory_response)
-            try:
-                events = trajectory_response_json['data']['events']
-                for event in events:
-                    event_type = event['event_type']
-                    timestamp = event['date']
-                    if event_type == 'NFM' and 'dirty_url' in str(event):
-                        network_info = event['network_info']
-                        dirty_url= event['network_info']['dirty_url']
-                        protocol = network_info['nfm']['protocol']
-                        local_ip = network_info['local_ip']
-                        local_port = network_info['local_port']
-                        remote_ip = network_info['remote_ip']
-                        remote_port = network_info['remote_port']
-                        direction = network_info['nfm']['direction']
-                        if direction == 'Outgoing connection from':
-                            print("\t\t [+] Outbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(timestamp,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
-                        if direction == 'Incoming connection from':
-                            print("\t\t [+] Inbound URL request at hostname: {}".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} Host: {} URL: {} DOMAIN: {}'.format(timestamp,computer_guids[guid]['hostname'], dirty_url,extractDomainFromURL(dirty_url)))
-            except:
-                pass
-        except:
-            pass
-
-finally:
-    gc.collect()
-    print("[+] Done")
+if __name__ == "__main__":
+	main()

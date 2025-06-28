@@ -1,171 +1,216 @@
-# This script is based on https://github.com/CiscoSecurity/amp-04-sha256-to-network-connections/blob/master/sha256_to_network_connections.py
+#!/usr/bin/env python3
+"""
+Script Name: allconnections.py
+Author: Jerzy 'Yuri' Kramarz (op7ic)
+Copyright: See LICENSE file
+Github: https://github.com/op7ic/amphunt
+
+allconnections.py - List all network connections across all computers
+
+This script retrieves all network connection events (NFM, DFC) from all computers
+in your AMP environment and displays them in a human-readable format.
+
+Usage:
+	python allconnections.py -c <config_file> [--csv output.csv]
+"""
+
 import sys
-import requests
-import configparser
-import time
-import gc
-from urllib.parse import urlparse
-
-# Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-def extractGUID(data):
-    """ Extract GUIDs from data structure and store them in computer_guids variable"""
-    for entry in data:
-        connector_guid = entry['connector_guid']
-        hostname = entry['hostname']
-        computer_guids.setdefault(connector_guid, {'hostname':hostname})
-
-def extractDomainFromURL(url):
-    """ Extract domain name from URL"""
-    return urlparse(url).netloc
-
-def checkAPITimeout(headers, request):
-    """Ensure we don't cross API limits, sleep if we are approaching close to limits"""
-    if str(request.status_code) == '200':
-        # Extract headers (these are also returned)
-        headers=request.headers
-        # check if we correctly got headers
-        if headers:
-            # We stop on 45 due to number of threads working
-            if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
-                if(int(headers['X-RateLimit-Remaining']) < 45):
-                    if(headers['Status'] == "200 OK"):
-                        # We are close to the border, in theory 429 error code should never trigger if we capture this event
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-                    if(headers['Status'] == "429 Too Many Requests"):
-                        # Triggered too many request, we need to sleep before it continues
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-            elif '503 Service Unavailable' in str(headers):
-                time.sleep(60)
-            else: # we got some new error
-                time.sleep(45)
-        else:
-            # no headers, request probably failed
-            time.sleep(45)
-    elif str(request.status_code) == '404':
-        # 404 - this could mean event timeline or event does no longer exists
-        time.sleep(45)
-        pass
-    elif str(request.status_code) == '503':
-        # server sarted to block us
-        time.sleep(90)
-        pass
-    else:
-        # in any other case, sleep
-        time.sleep(90)
-        pass
+import argparse
+from datetime import datetime
+from amp_client import AMPClient, Config
+from amp_client.utils import NetworkEventFormatter, CSVExporter, OutputFormatter
 
 
-# Validate a command line parameter was provided
-if len(sys.argv) < 2:
-    sys.exit('Usage: <config file.txt>\n %s' % sys.argv[0])
+def format_network_event(event, hostname, sanitize=True):
+	"""Format a network event for display"""
+	details = event.network_info
+	if not details:
+		return None
 
-# Parse config to extract API keys
-config = configparser.ConfigParser()
-config.read(sys.argv[1])
-client_id = config['settings']['client_id']
-api_key = config['settings']['api_key']
-domainIP = config['settings']['domainIP']
+	timestamp = event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
-# Containers for output
-computer_guids = {}
+	# Get connection details
+	local_ip = details.get('local_ip', 'unknown')
+	local_port = details.get('local_port', 'unknown')
+	remote_ip = details.get('remote_ip', 'unknown')
+	remote_port = details.get('remote_port', 'unknown')
+	protocol = details.get('nfm', {}).get('protocol', 'unknown')
 
-try:
+	# Determine direction
+	direction_str = details.get('nfm', {}).get('direction', '')
+	if 'Outgoing' in direction_str:
+		direction = 'outbound'
+		arrow = '->'
+	elif 'Incoming' in direction_str:
+		direction = 'inbound'
+		arrow = '<-'
+	else:
+		direction = 'unknown'
+		arrow = '--'
 
-    # Creat session object
-    # http://docs.python-requests.org/en/master/user/advanced/
-    # Using a session object gains efficiency when making multiple requests
-    session = requests.Session()
-    session.auth = (client_id, api_key)
+	# Sanitize IPs if requested
+	if sanitize:
+		local_ip = OutputFormatter.sanitize_ip(local_ip)
+		remote_ip = OutputFormatter.sanitize_ip(remote_ip)
 
-    # Define URL for extraction of all computers
-    computers_url='https://{}/v1/computers'.format(domainIP)
-    # Define response object to extract all computers
-    response = session.get(computers_url, verify=False)
-    # Get headers from request
-    headers=response.headers
-    # Ensure we don't cross API limits, sleep if we are approaching close to limits
-    checkAPITimeout(headers, response)
-        
-    # Decode first JSON response
-    response_json = response.json()
-    #Page 1 extract all GUIDs
-    extractGUID(response_json['data'])
-    # Handle paginated pages and extract computer GUIDs
-    if('next' in response_json['metadata']['links']):
-        while 'next' in response_json['metadata']['links']:
-            next_url = response_json['metadata']['links']['next']
-            response = session.get(next_url)
-            headers=response.headers
-            checkAPITimeout(headers, response)
-            # Extract GUID
-            response_json = response.json()
-            extractGUID(response_json['data'])
+	# Build connection string
+	connection = f"{protocol} {local_ip}:{local_port} {arrow} {remote_ip}:{remote_port}"
 
-    print('[+] Total computers found: {}'.format(len(computer_guids)))
+	# Handle URL events
+	url_info = ""
+	if 'dirty_url' in details:
+		url = details['dirty_url']
+		domain = OutputFormatter.extract_domain(url)
+		if sanitize:
+			url = OutputFormatter.sanitize_url(url)
+			domain = OutputFormatter.sanitize_url(domain)
+		url_info = f" | DOMAIN: {domain} | URL: {url}"
 
-    for guid in computer_guids:
-        print('\n\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
-        trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-        trajectory_response = session.get(trajectory_url, verify=False)
-        try:
-            trajectory_response_json = trajectory_response.json()
-            headers=trajectory_response.headers
-            # Ensure we don't cross API limits, sleep if we are approaching close to limits
-            checkAPITimeout(headers, trajectory_response)
-            try:
-                events = trajectory_response_json['data']['events']
-                for event in events:
-                    event_type = event['event_type']
-                    timestamp = event['date']
-                    if event_type == 'NFM':
-                        network_info = event['network_info']
-                        protocol = network_info['nfm']['protocol']
-                        local_ip = network_info['local_ip']
-                        local_port = network_info['local_port']
-                        remote_ip = network_info['remote_ip']
-                        remote_port = network_info['remote_port']
-                        direction = network_info['nfm']['direction']
-                        if direction == 'Outgoing connection from':
-                            print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from':
-                            print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                    if event_type == 'DFC Threat Detected':
-                        network_info = event['network_info']
-                        local_ip = network_info['local_ip']
-                        local_port = network_info['local_port']
-                        remote_ip = network_info['remote_ip']
-                        remote_port = network_info['remote_port']
-                        print("\t\t [+] Device flow correlation network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} : {} DFC: {}:{} - {}:{}'.format(timestamp,computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
-                        
-                    if event_type == 'NFM' and 'dirty_url' in str(event):
-                        network_info = event['network_info']
-                        dirty_url= event['network_info']['dirty_url']
-                        protocol = network_info['nfm']['protocol']
-                        local_ip = network_info['local_ip']
-                        local_port = network_info['local_port']
-                        remote_ip = network_info['remote_ip']
-                        remote_port = network_info['remote_port']
-                        direction = network_info['nfm']['direction']
-                        if direction == 'Outgoing connection from':
-                            print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(timestamp,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                            print('\t\t\t {} : {} : DOMAIN: {} : URL: {}'.format(timestamp,computer_guids[guid]['hostname'],str(extractDomainFromURL(dirty_url)).replace(".","[.]"),str(dirty_url).replace(".","[.]")))
-                        if direction == 'Incoming connection from':
-                            print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(timestamp,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-            except: # that shouldn't really happen
-                pass
-        except:
-            pass
+	return {
+		'timestamp': timestamp,
+		'direction': direction,
+		'hostname': hostname,
+		'connection': connection,
+		'url_info': url_info,
+		'event_type': event.event_type,
+		'local_ip': local_ip,
+		'local_port': local_port,
+		'remote_ip': remote_ip,
+		'remote_port': remote_port,
+		'protocol': protocol,
+		'url': details.get('dirty_url', ''),
+		'domain': OutputFormatter.extract_domain(details.get('dirty_url', '')) if 'dirty_url' in details else ''
+	}
 
-finally:
-    gc.collect()
-    print("[+] Done")
+
+def main():
+	parser = argparse.ArgumentParser(description='List all network connections from AMP')
+	parser.add_argument('-c', '--config', required=True, help='Configuration file path')
+	parser.add_argument('--csv', help='Export results to CSV file')
+	parser.add_argument('--no-sanitize', action='store_true', help='Do not sanitize IPs and URLs')
+	parser.add_argument('--limit', type=int, help='Limit number of computers to process')
+	args = parser.parse_args()
+
+	# Load configuration
+	config = Config.from_file(args.config)
+
+	# Create client
+	with AMPClient(config) as client:
+		# Get all computers
+		if not args.csv:
+			print('[+] Fetching computers...')
+		computers = list(client.computers.list())
+
+		if args.limit:
+			computers = computers[:args.limit]
+
+		if not args.csv:
+			print(f'[+] Total computers found: {len(computers)}')
+
+		# Collect all events for CSV export
+		all_events = []
+
+		# Process each computer
+		for computer in computers:
+			if not args.csv:
+				print(f'\n\t[+] Querying: {computer.hostname} - {computer.connector_guid}')
+
+			try:
+				# Get trajectory
+				trajectory = client.computers.get_trajectory(computer.connector_guid)
+
+				# Process events
+				network_event_count = 0
+				for event in trajectory.events:
+					# Handle Network File Move events
+					if event.event_type == 'NFM' and event.network_info:
+						formatted = format_network_event(event, computer.hostname, 
+													   sanitize=not args.no_sanitize)
+						if formatted:
+							direction = formatted['direction']
+
+							if not args.csv:
+								if direction == 'outbound':
+									print(f"\t\t [+] Outbound network event at hostname : {computer.hostname}")
+								elif direction == 'inbound':
+									print(f"\t\t [+] Inbound network event at hostname : {computer.hostname}")
+
+								output = f"\t\t\t {formatted['timestamp']} : {direction} : {computer.hostname} : {formatted['connection']}"
+								if formatted['url_info']:
+									output += f"\n\t\t\t {formatted['timestamp']} : {computer.hostname} : {formatted['url_info']}"
+								print(output)
+
+							all_events.append(formatted)
+							network_event_count += 1
+
+					# Handle DFC Threat events
+					elif event.event_type == 'DFC Threat Detected' and event.network_info:
+						details = event.network_info
+						timestamp = event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+						if not args.csv:
+							print(f"\t\t [+] Device flow correlation network event at hostname : {computer.hostname}")
+							print(f"\t\t\t {timestamp} : {computer.hostname} : DFC: "
+								  f"{details.get('local_ip')}:{details.get('local_port')} - "
+								  f"{details.get('remote_ip')}:{details.get('remote_port')}")
+
+						# Add to events list
+						all_events.append({
+							'timestamp': timestamp,
+							'direction': 'DFC Threat Detected',
+							'hostname': computer.hostname,
+							'connection': f"DFC: {details.get('local_ip')}:{details.get('local_port')} - "
+										 f"{details.get('remote_ip')}:{details.get('remote_port')}",
+							'url_info': '',
+							'event_type': 'DFC Threat Detected',
+							'local_ip': details.get('local_ip', ''),
+							'local_port': details.get('local_port', ''),
+							'remote_ip': details.get('remote_ip', ''),
+							'remote_port': details.get('remote_port', ''),
+							'protocol': '',
+							'url': '',
+							'domain': ''
+						})
+						network_event_count += 1
+
+				if network_event_count == 0 and not args.csv:
+					print(f"\t\t [-] No network events found")
+
+			except Exception as e:
+				if not args.csv:
+					print(f"\t\t [!] Error processing {computer.hostname}: {e}")
+				continue
+
+		# Export to CSV if requested
+		if args.csv and all_events:
+
+			# Convert to format expected by CSVExporter
+			export_events = []
+			for event in all_events:
+				export_events.append({
+					'date': event['timestamp'],
+					'connector_guid': event.get('guid', ''),
+					'hostname': event['hostname'],
+					'event_type': event['event_type'],
+					'local_ip': event['local_ip'],
+					'local_port': event['local_port'],
+					'remote_ip': event['remote_ip'],
+					'remote_port': event['remote_port'],
+					'direction': event['direction'],
+					'url': event['url'],
+					'domain': event['domain']
+				})
+
+			CSVExporter.export_events(
+				export_events, 
+				args.csv,
+				fields=['date', 'hostname', 'event_type', 'direction', 'local_ip', 
+						'local_port', 'remote_ip', 'remote_port', 'domain', 'url']
+			)
+
+		if not args.csv:
+			print("\n[+] Done")
+
+
+if __name__ == "__main__":
+	main()

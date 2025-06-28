@@ -1,279 +1,264 @@
-# This script is based on https://github.com/CiscoSecurity/amp-04-check-sha256-execution
+#!/usr/bin/env python3
+"""
+Script Name: multikeyword_search.py
+Author: Jerzy 'Yuri' Kramarz (op7ic)
+Copyright: See LICENSE file
+Github: https://github.com/op7ic/amphunt
+
+multikeyword_search.py - Search for multiple keywords across AMP environment
+
+This script searches for multiple keywords/indicators (filenames, hashes, etc.)
+across all computers, showing file executions, network connections, and threat events.
+
+Usage:
+	python multikeyword_search.py -c/--config <config_file> <keywords.txt> [--csv output.csv]
+"""
+
 import sys
-import requests
-import configparser
-import time
-from urllib.parse import urlparse
-import gc
-
-# Ignore insecure cert warnings (enable only if working with onsite-amp deployments)
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-def format_arguments(_arguments):
-    """ If arguments are in a list join them as a single string"""
-    if isinstance(_arguments, list):
-        return ' '.join(_arguments)
-    return _arguments
-
-def extractGUID(data):
-    """ Extract GUIDs from data structure and store them in computer_guids variable"""
-    for entry in data:
-        connector_guid = entry['connector_guid']
-        hostname = entry['hostname']
-        computer_guids.setdefault(connector_guid, {'hostname':hostname})
-
-def extractDomainFromURL(url):
-    """ Extract domain name from URL"""
-    return urlparse(url).netloc
-
-def checkAPITimeout(headers, request):
-    """Ensure we don't cross API limits, sleep if we are approaching close to limits"""
-    if str(request.status_code) == '200':
-        # Extract headers (these are also returned)
-        headers=request.headers
-        # check if we correctly got headers
-        if headers:
-            # We stop on 45 due to number of threads working
-            if 'X-RateLimit-Remaining' and 'X-RateLimit-Reset' in str(headers):
-                if(int(headers['X-RateLimit-Remaining']) < 45):
-                    if(headers['Status'] == "200 OK"):
-                        # We are close to the border, in theory 429 error code should never trigger if we capture this event
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-                    if(headers['Status'] == "429 Too Many Requests"):
-                        # Triggered too many request, we need to sleep before it continues
-                        # For some reason simply using time.sleep does not work very well here
-                        time.sleep((int(headers['X-RateLimit-Reset'])+5))
-            elif '503 Service Unavailable' in str(headers):
-                time.sleep(60)
-            else: # we got some new error
-                time.sleep(45)
-        else:
-            # no headers, request probably failed
-            time.sleep(45)
-    elif str(request.status_code) == '404':
-        # 404 - this could mean event timeline or event does no longer exists
-        time.sleep(45)
-        pass
-    elif str(request.status_code) == '503':
-        # server sarted to block us
-        time.sleep(90)
-        pass
-    else:
-        # in any other case, sleep
-        time.sleep(90)
-        pass
-
-    
-# Validate a command line parameter was provided
-if len(sys.argv) < 2:
-    sys.exit('Usage:\n %s <config file> <keywordfile.txt>' % sys.argv[0])
-    
-# Parse config to extract API keys
-config = configparser.ConfigParser()
-config.read(sys.argv[1])
-client_id = config['settings']['client_id']
-api_key = config['settings']['api_key']
-domainIP = config['settings']['domainIP']
-
-# Store the command line parameter
-keywordsFile = sys.argv[2]
-
-try:
-    fp = open(keywordsFile,'r')
-    for searchterm in fp.readlines():
-        print("\n[+] Hunting for keyword: {}".format(searchterm))
-        # Containers for output
-        computer_guids = {}
-        parent_to = {}
-        direct_commands = {'process_names':set(), 'commands':set()}
-
-        # Creat session object
-        # http://docs.python-requests.org/en/master/user/advanced/
-        # Using a session object gains efficiency when making multiple requests
-        session = requests.Session()
-        session.auth = (client_id, api_key)
-
-        # Define URL and parameters
-        activity_url = 'https://{}/v1/computers/activity'.format(domainIP)
-        payload = {'q': searchterm.strip()}
-
-        # Query API
-        response = session.get(activity_url, params=payload, verify=False)
-        # Get Headers
-        headers=response.headers
-
-        # Ensure we don't cross API limits, sleep if we are approaching close to limits
-        checkAPITimeout(headers, response)
-        # Decode JSON response
-        response_json = response.json()
-        # Extract GUIDs
-        extractGUID(response_json['data'])
-        # Handle paginated pages and extract computer GUIDs
-        if('next' in response_json['metadata']['links']):
-            while 'next' in response_json['metadata']['links']:
-                checkAPITimeout(headers, response)
-                next_url = response_json['metadata']['links']['next']
-                response = session.get(next_url)
-                response_json = response.json()
-                extractGUID(response_json['data'])
-
-        print('\t[+] Computers found: {}'.format(len(computer_guids)))
-
-        # Query trajectory for each GUID
-        for guid in computer_guids:
-            # Print the hostname and GUID that is about to be queried
-            print('\n\t\t[+] Querying: {} - {}'.format(computer_guids[guid]['hostname'], guid))
-
-            try:
-                trajectory_url = 'https://{}/v1/computers/{}/trajectory'.format(domainIP,guid)
-                trajectory_response = session.get(trajectory_url, params=payload, verify=False)
-                headers=trajectory_response.headers
-                # Ensure we don't cross API limits, sleep if we are approaching close to limits
-                checkAPITimeout(headers, trajectory_response)
-                # Decode JSON response
-                trajectory_response_json = trajectory_response.json()
-                # Name events section of JSON
-                events = trajectory_response_json['data']['events']
-
-                # Parse trajectory events to find the network events
-                for event in events:
-                    timestamp=event['date']
-                    event_type = event['event_type']
-                    # Search for executed
-                    if 'Moved by' in str(event_type):
-                        # Search for any command lines executed
-                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
-                            arguments = event['command_line']['arguments']
-                            file_sha256 = event['file']['identity']['sha256']
-                            parent_sha256 = event['file']['parent']['identity']['sha256']
-                            file_name = event['file']['file_name']
-                            direct_commands['process_names'].add(file_name)
-                            direct_commands['commands'].add(format_arguments(arguments))
-                            print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
-                        #Search for any binaries
-                        if 'file_name' in str(event) and 'command_line' not in str(event):
-                            print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
-                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
-
-                    if 'Threat Detected' in str(event_type):
-                        # Search for any command lines executed
-                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
-                            arguments = event['command_line']['arguments']
-                            file_sha256 = event['file']['identity']['sha256']
-                            parent_sha256 = event['file']['parent']['identity']['sha256']
-                            file_name = event['file']['file_name']
-                            direct_commands['process_names'].add(file_name)
-                            direct_commands['commands'].add(format_arguments(arguments))
-                            print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
-                        #Search for any binaries
-                        if 'file_name' in str(event) and 'command_line' not in str(event):
-                            print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
-                            if 'parent' in str(event):
-                                print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
-                            else:
-                                pass
-
-                    if 'Malicious Activity Detection' in str(event_type):
-                        # Search for any command lines executed
-                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
-                            arguments = event['command_line']['arguments']
-                            file_sha256 = event['file']['identity']['sha256']
-                            parent_sha256 = event['file']['parent']['identity']['sha256']
-                            file_name = event['file']['file_name']
-                            direct_commands['process_names'].add(file_name)
-                            direct_commands['commands'].add(format_arguments(arguments))
-                            print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
-                        #Search for any binaries
-                        if 'file_name' in str(event) and 'command_line' not in str(event):
-                            print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
-                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
-
-                    if 'Created' in str(event_type):
-                        # Search for any command lines executed
-                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
-                            arguments = event['command_line']['arguments']
-                            file_sha256 = event['file']['identity']['sha256']
-                            parent_sha256 = event['file']['parent']['identity']['sha256']
-                            file_name = event['file']['file_name']
-                            direct_commands['process_names'].add(file_name)
-                            direct_commands['commands'].add(format_arguments(arguments))
-                            print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
-                        #Search for any binaries
-                        if 'file_name' in str(event) and 'command_line' not in str(event):
-                            print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
-                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+import argparse
+from collections import defaultdict
+from amp_client import AMPClient, Config
+from amp_client.utils import NetworkEventFormatter, FileEventFormatter, CSVExporter, OutputFormatter
 
 
-                    if 'Executed' in str(event_type):
-                        # Search for any command lines executed
-                        if 'command_line' in str(event) and 'arguments' in str(event['command_line']) :
-                            arguments = event['command_line']['arguments']
-                            file_sha256 = event['file']['identity']['sha256']
-                            parent_sha256 = event['file']['parent']['identity']['sha256']
-                            file_name = event['file']['file_name']
-                            direct_commands['process_names'].add(file_name)
-                            direct_commands['commands'].add(format_arguments(arguments))
-                            print('\t\t [+] Process SHA256 : {} Child SHA256: {}'.format(parent_sha256,file_sha256))
-                            print('\t\t [+] {} : {} Process name: {} args: {}'.format(timestamp,computer_guids[guid]['hostname'], file_name,format_arguments(arguments)))
-                        #Search for any binaries
-                        if 'file_name' in str(event) and 'command_line' not in str(event):
-                            print("\t\t [-] CMD could not be retrieved from hostname: {}".format(computer_guids[guid]['hostname']))
-                            print("\t\t\t [+] {} : {} File Path: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['file_path']))
-                            print("\t\t\t [+] {} : {} Parent SHA256: {}".format(timestamp,computer_guids[guid]['hostname'],event['file']['parent']['identity']['sha256']))
+def format_arguments(arguments):
+	"""Format command line arguments for display"""
+	if isinstance(arguments, list):
+		return ' '.join(arguments)
+	return arguments or ''
 
-                    # Search for network-type events
-                    if event_type == 'NFM':
-                        network_info = event['network_info']
-                        protocol = network_info['nfm']['protocol']
-                        local_ip = network_info['local_ip']
-                        local_port = network_info['local_port']
-                        remote_ip = network_info['remote_ip']
-                        remote_port = network_info['remote_port']
-                        direction = network_info['nfm']['direction']
-                        if direction == 'Outgoing connection from':
-                            print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {} : {} : {} {}:{} -> {}:{}'.format(timestamp,'outbound',computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-                        if direction == 'Incoming connection from':
-                            print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {} : {} :  {} {}:{} <- {}:{}'.format(timestamp,'inbound',computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                    if event_type == 'DFC Threat Detected':
-                        network_info = event['network_info']
-                        local_ip = network_info['local_ip']
-                        local_port = network_info['local_port']
-                        remote_ip = network_info['remote_ip']
-                        remote_port = network_info['remote_port']
-                        print("\t\t [+] Device flow correlation network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                        print('\t\t\t {} : {} DFC: {}:{} - {}:{}'.format(timestamp,computer_guids[guid]['hostname'],local_ip,local_port,remote_ip,remote_port))
-                        
-                    if event_type == 'NFM' and 'dirty_url' in str(event):
-                        network_info = event['network_info']
-                        dirty_url= event['network_info']['dirty_url']
-                        protocol = network_info['nfm']['protocol']
-                        local_ip = network_info['local_ip']
-                        local_port = network_info['local_port']
-                        remote_ip = network_info['remote_ip']
-                        remote_port = network_info['remote_port']
-                        direction = network_info['nfm']['direction']
-                        if direction == 'Outgoing connection from':
-                            print("\t\t [+] Outbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {} : {} {}:{} -> {}:{}'.format(timestamp,computer_guids[guid]['hostname'], protocol,local_ip,local_port,remote_ip,remote_port))
-                            print('\t\t\t {} : {} : DOMAIN: {} : URL: {}'.format(timestamp,computer_guids[guid]['hostname'],str(extractDomainFromURL(dirty_url)).replace(".","[.]"),str(dirty_url).replace(".","[.]")))
-                        if direction == 'Incoming connection from':
-                            print("\t\t [+] Inbound network event at hostname : {} ".format(computer_guids[guid]['hostname']))
-                            print('\t\t\t {} : {}: {} {}:{} <- {}:{}'.format(timestamp,computer_guids[guid]['hostname'],protocol,local_ip,local_port,remote_ip,remote_port))
-            except:# sometimes we get 404 on connector (it no longer exist but data is still in the activity)
-                pass
-     
-finally:
-    fp.close()
-    gc.collect()
+
+def process_keyword(client, keyword):
+	"""Process a single keyword search"""
+	print(f"\n[+] Hunting for keyword: {keyword}")
+
+	# Track findings
+	computers_found = {}
+	unique_processes = defaultdict(set)  # process -> set of computers
+	unique_commands = defaultdict(set)   # command -> set of computers
+	all_events = []
+
+	# Search for activity
+	for activity in client.activities.search(keyword):
+		guid = activity.get('connector_guid')
+		hostname = activity.get('hostname', 'Unknown')
+		if guid not in computers_found:
+			computers_found[guid] = hostname
+
+	print(f'\t[+] Computers found: {len(computers_found)}')
+
+	# Query trajectory for each computer
+	for guid, hostname in computers_found.items():
+		print(f'\n\t\t[+] Querying: {hostname} - {guid}')
+
+		try:
+			# Get trajectory filtered by keyword
+			trajectory = client.computers.get_trajectory(guid, q=keyword)
+
+			# Process events
+			for event in trajectory.events:
+				timestamp = event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+				# Handle various event types that indicate file activity
+				if event.event_type in ['Moved by', 'Threat Detected', 'Malicious Activity Detection', 
+									   'Created by', 'Executed by']:
+
+					# Process events with command line
+					if hasattr(event, 'command_line') and event.command_line:
+						cmd_line = event.command_line
+						if 'arguments' in cmd_line:
+							arguments = format_arguments(cmd_line['arguments'])
+							file_info = event.file or {}
+							file_name = file_info.get('file_name', 'unknown')
+							file_sha256 = file_info.get('identity', {}).get('sha256', 'unknown')
+							parent_info = file_info.get('parent', {})
+							parent_sha256 = parent_info.get('identity', {}).get('sha256', 'unknown')
+
+							# Track unique items
+							unique_processes[file_name].add(hostname)
+							unique_commands[format_arguments(arguments)].add(hostname)
+
+							print(f'\t\t [+] Process SHA256 : {parent_sha256} Child SHA256: {file_sha256}')
+							print(f'\t\t [+] {timestamp} : {hostname} Process name: {file_name} args: {arguments}')
+
+							all_events.append({
+								'timestamp': timestamp,
+								'hostname': hostname,
+								'keyword': keyword,
+								'event_type': event.event_type,
+								'file_name': file_name,
+								'file_sha256': file_sha256,
+								'arguments': arguments,
+								'parent_sha256': parent_sha256,
+								'file_path': file_info.get('file_path', ''),
+								'type': 'execution'
+							})
+
+					# Process events without command line
+					elif event.file and event.file.get('file_name'):
+						file_info = event.file
+						file_path = file_info.get('file_path', '')
+						parent_info = file_info.get('parent', {})
+						parent_sha256 = parent_info.get('identity', {}).get('sha256', 'unknown')
+
+						print(f"\t\t [-] CMD could not be retrieved from hostname: {hostname}")
+						print(f"\t\t\t [+] {timestamp} : {hostname} File Path: {file_path}")
+						if parent_sha256 != 'unknown':
+							print(f"\t\t\t [+] {timestamp} : {hostname} Parent SHA256: {parent_sha256}")
+
+						all_events.append({
+							'timestamp': timestamp,
+							'hostname': hostname,
+							'keyword': keyword,
+							'event_type': event.event_type,
+							'file_name': file_info.get('file_name', 'unknown'),
+							'file_sha256': file_info.get('identity', {}).get('sha256', 'unknown'),
+							'arguments': '[No arguments captured]',
+							'parent_sha256': parent_sha256,
+							'file_path': file_path,
+							'type': 'file_activity'
+						})
+
+				# Handle network events
+				elif event.event_type == 'NFM' and event.network_info:
+					details = event.network_info
+					direction = details.get('nfm', {}).get('direction', '')
+
+					if 'Outgoing' in direction:
+						print(f"\t\t [+] Outbound network event at hostname : {hostname}")
+						connection = NetworkEventFormatter.format_connection(
+							{'network_info': details}, sanitize=False
+						)
+						print(f'\t\t\t {timestamp} : outbound : {hostname} : {connection}')
+					elif 'Incoming' in direction:
+						print(f"\t\t [+] Inbound network event at hostname : {hostname}")
+						connection = NetworkEventFormatter.format_connection(
+							{'network_info': details}, sanitize=False
+						)
+						print(f'\t\t\t {timestamp} : inbound : {hostname} : {connection}')
+
+					# Handle URL events
+					if 'dirty_url' in details:
+						url = details['dirty_url']
+						domain = OutputFormatter.extract_domain(url)
+						print(f'\t\t\t {timestamp} : {hostname} : DOMAIN: {OutputFormatter.sanitize_url(domain)} : URL: {OutputFormatter.sanitize_url(url)}')
+
+					all_events.append({
+						'timestamp': timestamp,
+						'hostname': hostname,
+						'keyword': keyword,
+						'event_type': 'Network Connection',
+						'file_name': '',
+						'file_sha256': '',
+						'arguments': connection,
+						'parent_sha256': '',
+						'file_path': details.get('dirty_url', ''),
+						'type': 'network'
+					})
+
+				# Handle DFC Threat events
+				elif event.event_type == 'DFC Threat Detected' and event.network_info:
+					details = event.network_info
+					print(f"\t\t [+] Device flow correlation network event at hostname : {hostname}")
+					print(f'\t\t\t {timestamp} : {hostname} DFC: '
+						  f'{details.get("local_ip")}:{details.get("local_port")} - '
+						  f'{details.get("remote_ip")}:{details.get("remote_port")}')
+
+					all_events.append({
+						'timestamp': timestamp,
+						'hostname': hostname,
+						'keyword': keyword,
+						'event_type': 'DFC Threat Detected',
+						'file_name': '',
+						'file_sha256': '',
+						'arguments': f'DFC: {details.get("local_ip")}:{details.get("local_port")} - '
+									f'{details.get("remote_ip")}:{details.get("remote_port")}',
+						'parent_sha256': '',
+						'file_path': '',
+						'type': 'threat'
+					})
+
+		except Exception as e:
+			print(f"\t\t [!] Error processing {hostname}: {e}")
+			continue
+
+	return all_events
+
+
+def main():
+	parser = argparse.ArgumentParser(description='Search for multiple keywords in AMP')
+	parser.add_argument('-c', '--config', required=True, help='Configuration file path')
+	parser.add_argument('keywords', help='File containing keywords (one per line)')
+	parser.add_argument('--csv', help='Export results to CSV file')
+	args = parser.parse_args()
+
+	# Load configuration
+	config = Config.from_file(args.config)
+
+	# Read keywords from file
+	try:
+		with open(args.keywords, 'r') as f:
+			keywords = [line.strip() for line in f if line.strip()]
+	except Exception as e:
+		sys.exit(f"Error reading keywords file: {e}")
+
+	if not keywords:
+		sys.exit("No keywords found in input file")
+
+	print(f"[+] Loaded {len(keywords)} keywords to search")
+
+	# Create client
+	with AMPClient(config) as client:
+		all_results = []
+
+		# Process each keyword
+		for keyword in keywords:
+			events = process_keyword(client, keyword)
+			all_results.extend(events)
+
+		# Summary statistics
+		if all_results:
+			print(f"\n[+] Summary:")
+			print(f"\tTotal events found: {len(all_results)}")
+
+			# Events by type
+			events_by_type = defaultdict(int)
+			for event in all_results:
+				events_by_type[event['type']] += 1
+
+			print("\n\tEvents by category:")
+			for event_type, count in sorted(events_by_type.items()):
+				print(f"\t  {event_type}: {count}")
+
+		# Export to CSV if requested
+		if args.csv and all_results:
+			print(f'\n[+] Exporting {len(all_results)} events to {args.csv}...')
+
+			# Convert to format for CSVExporter
+			export_events = []
+			for event in all_results:
+				export_events.append({
+					'date': event['timestamp'],
+					'hostname': event['hostname'],
+					'keyword': event['keyword'],
+					'event_type': event['event_type'],
+					'file_name': event['file_name'],
+					'file_sha256': event['file_sha256'],
+					'file_path': event['file_path'],
+					'arguments': event['arguments'],
+					'parent_sha256': event['parent_sha256']
+				})
+
+			CSVExporter.export_events(
+				export_events,
+				args.csv,
+				fields=['date', 'hostname', 'keyword', 'event_type', 'file_name',
+						'file_sha256', 'file_path', 'arguments', 'parent_sha256']
+			)
+			print(f'[+] CSV export complete: {args.csv}')
+
+		print("\n[+] Done")
+
+
+if __name__ == "__main__":
+	main()
