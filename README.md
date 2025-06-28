@@ -625,13 +625,6 @@ if __name__ == '__main__':
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Test your changes thoroughly
-4. Submit a pull request
-
-## 🤝 Contributing
-
 Contributions are welcome! Please submit issues and pull requests on GitHub.
 
 ## License
