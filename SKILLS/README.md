@@ -18,7 +18,6 @@ Three LLM platforms are supported, each with platform-native skill definitions:
 SKILLS/
   ├── README.md                              # This file
   ├── install.sh                             # Deploy skills to repo root
-  ├── validate_skills.py                     # Automated validation (9 test suites)
   │
   ├── .claude/                               # Claude Code skills (drop-in)
   │   ├── README.md                          # Claude-specific usage guide
@@ -169,21 +168,12 @@ All three platforms support the same ten hunting scenarios:
 | Sub-skill naming | `skills/hunt-*/SKILL.md` | `instructions/hunt-*.md` | `playbooks/hunt-*.md` |
 | Auto-discovery | Project open | CLI launch | /memory |
 
-## Validation
-
-```bash
-python3 SKILLS/validate_skills.py
-```
-
-Validates: hashset format, script references, path integrity, cross-platform symmetry, cross-references, README example coverage, argument compatibility, event type consistency, and drop-in structure.
-
 ## Adding a New Hunt
 
 1. Create `SKILLS/.claude/skills/hunt-newname/SKILL.md`
 2. Create `SKILLS/.codex/instructions/hunt-newname.md` and update `AGENTS.md` routing table
 3. Create `SKILLS/.gemini/playbooks/hunt-newname.md` and update `GEMINI.md` routing table
-4. Run `python3 SKILLS/validate_skills.py`
-5. Re-run `bash SKILLS/install.sh` to deploy
+4. Re-run `bash SKILLS/install.sh` to deploy
 
 ## References
 
