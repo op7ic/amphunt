@@ -33,8 +33,6 @@ SKILLS/
   │   │   ├── hunt-persistence/SKILL.md
   │   │   ├── hunt-stats/SKILL.md
   │   │   └── hunt-events/SKILL.md
-  │   ├── SKILL.md                           # (legacy flat layout)
-  │   └── hunt-*/SKILL.md                    # (legacy flat layout)
   │
   ├── .codex/                                # Codex CLI skills (drop-in)
   │   ├── README.md                          # Codex-specific usage guide
