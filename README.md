@@ -302,6 +302,57 @@ echo "sc create" >> persistence.txt
 echo "wmic.*startup" >> persistence.txt
 python3 multikeyword_search.py -c config.txt persistence.txt --csv persistence.csv
 ```
+## AI-Assisted Threat Hunting
+
+amphunt includes built-in AI skills for three major LLM platforms. When you open this project in any supported CLI, the AI agent automatically discovers the hunting skills and can execute them on your behalf.
+
+### Supported Platforms
+
+| Platform | Source (SKILLS/) | Deploys To | Usage |
+|----------|------------------|------------|-------|
+| Claude Code | `.claude/skills/` | `.claude/skills/` | `claude` then ask |
+| Codex CLI | `.codex/` | `AGENTS.md` + `instructions/` | `codex` then ask |
+| Gemini CLI | `.gemini/` | `GEMINI.md` + `playbooks/` | `gemini` then ask |
+
+### Setup
+
+Skills are stored in `SKILLS/` and deployed to platform-native locations:
+```bash
+bash SKILLS/install.sh          # Deploy all platforms
+bash SKILLS/install.sh claude   # Claude Code only
+bash SKILLS/install.sh codex    # Codex CLI only
+bash SKILLS/install.sh gemini   # Gemini CLI only
+```
+
+### Quick Start
+
+```bash
+# Claude Code
+cd amphunt && claude
+# "Hunt for credential dumping tools across all endpoints"
+
+# Codex CLI
+cd amphunt && codex
+# "Run a lateral movement detection scan"
+
+# Gemini CLI
+cd amphunt && gemini
+# "Check for persistence mechanisms in the environment"
+```
+
+### What the AI Can Do
+
+The AI agent handles all ten hunting scenarios from the manual examples above, plus:
+- Automatic script selection based on your natural-language request
+- Hunt chaining (findings from one hunt feed the next)
+- Result interpretation with MITRE ATT\&CK mapping
+- False positive triage guidance
+- Scope management (--limit for large environments)
+
+Each platform has 10 modular hunt skills covering: timeline analysis, hash-based IOC hunting, network connections, lateral movement, vulnerabilities, keyword/IOC search, credential theft, persistence mechanisms, statistical anomalies, and event extraction.
+
+See `SKILLS/README.md` for full documentation, platform comparison, and contribution guide.
+
 
 ## Best Practices
 
