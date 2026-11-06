@@ -59,3 +59,6 @@ Rcontrol.exe
 tacticalrmm.exe
 MeshAgent.exe
 AteraAgent.exe
+Nizlo.Agent.exe
+Nizlo.Agent.Updater.exe
+Nizlo.RemoteBridge.exe
